@@ -41,6 +41,7 @@
 	},
 	"dependencies": {
 		"@mozilla/readability": "^0.6",
+		"@oh-my-pi/omp-remote": "workspace:*",
 		"@oh-my-pi/omp-stats": "workspace:*",
 		"@oh-my-pi/pi-agent-core": "workspace:*",
 		"@oh-my-pi/pi-ai": "workspace:*",
