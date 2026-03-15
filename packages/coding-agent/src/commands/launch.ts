@@ -119,6 +119,9 @@ export default class Index extends Command {
 		"no-title": Flags.boolean({
 			description: "Disable title auto-generation",
 		}),
+		remote: Flags.string({
+			description: "Start remote control web server (optionally specify port, default: 3848)",
+		}),
 	};
 
 	static examples = [

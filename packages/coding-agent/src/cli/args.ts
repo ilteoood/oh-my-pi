@@ -43,6 +43,7 @@ export interface Args {
 	noRules?: boolean;
 	listModels?: string | true;
 	noTitle?: boolean;
+	remote?: string | true;
 	messages: string[];
 	fileArgs: string[];
 	/** Unknown flags (potentially extension flags) - map of flag name to value */
@@ -153,6 +154,14 @@ export function parseArgs(args: string[], extensionFlags?: Map<string, { type: "
 			result.noRules = true;
 		} else if (arg === "--no-title") {
 			result.noTitle = true;
+		} else if (arg === "--remote") {
+			// Optional port number: --remote 8080
+			const next = args[i + 1];
+			if (next && !next.startsWith("-") && !next.startsWith("@") && /^\d+$/.test(next)) {
+				result.remote = args[++i];
+			} else {
+				result.remote = true;
+			}
 		} else if (arg === "--skills" && i + 1 < args.length) {
 			// Comma-separated glob patterns for skill filtering
 			result.skills = args[++i].split(",").map(s => s.trim());
