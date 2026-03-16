@@ -3,6 +3,6 @@
 	"compilerOptions": {
 		"noEmit": true
 	},
-	"include": ["src/**/*"],
-	"exclude": ["src/client/**/*"]
+	"include": ["src/**/*", "test/**/*"],
+	"exclude": ["src/client/**/*", "test/client/**/*"]
 }

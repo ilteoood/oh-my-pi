@@ -1,0 +1,11 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`App > renders without crashing 1`] = `
+<div
+  class="h-dvh flex flex-col bg-background text-foreground"
+>
+  <div
+    data-testid="chat-page"
+  />
+</div>
+`;

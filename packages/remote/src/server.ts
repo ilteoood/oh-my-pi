@@ -7,7 +7,7 @@ import { $ } from "bun";
 import { Hono } from "hono";
 import { serveStatic, upgradeWebSocket, websocket } from "hono/bun";
 import type { WSContext } from "hono/ws";
-import { getSessionState, handleCommand } from "./command-handler";
+import { getSessionState, handleCommand } from "./commandHandler";
 
 const PACKAGE_ROOT = path.join(import.meta.dir, "..");
 const CLIENT_SRC_DIR = path.join(PACKAGE_ROOT, "src", "client");

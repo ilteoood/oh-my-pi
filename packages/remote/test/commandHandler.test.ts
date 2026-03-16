@@ -597,3 +597,38 @@ describe("handleCommand", () => {
 		});
 	});
 });
+
+describe("handleCommand — .catch callbacks", () => {
+	it("logs error when prompt rejects", async () => {
+		const session = makeSession();
+		const rejection = new Error("network failure");
+		// Return a real rejected promise so .catch is called
+		session.prompt = vi.fn().mockReturnValue(Promise.reject(rejection));
+
+		const command = { type: "prompt" as const, message: "hello" };
+		const response = await handleCommand(session, command);
+
+		// handleCommand returns success immediately; the .catch logs the error asynchronously
+		expect(response.success).toBe(true);
+		// Allow the microtask queue to flush so .catch runs
+		await Promise.resolve();
+		const { logger } = await import("@oh-my-pi/pi-utils");
+		expect(vi.mocked(logger.error)).toHaveBeenCalled();
+	});
+
+	it("returns text from last assistant message content parts", async () => {
+		const session = makeSession();
+		session.getLastAssistantMessage = vi.fn().mockReturnValue({
+			role: "assistant",
+			content: [
+				{ type: "text", text: "line one" },
+				{ type: "thinking", thinking: "internal" },
+				{ type: "text", text: "line two" },
+			],
+		});
+		const command = { type: "get_last_assistant_text" as const };
+		const response = await handleCommand(session, command);
+		expect(response.success).toBe(true);
+		expect((response as { data: { text: string } }).data.text).toBe("line one\nline two");
+	});
+});

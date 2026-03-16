@@ -1,0 +1,30 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`ThinkingBlock > matches snapshot 1`] = `
+<div
+  class="my-2"
+>
+  <div
+    id="thinking"
+  >
+    <h2>
+      <div>
+        <span
+          class="text-sm text-muted flex items-center gap-1"
+        >
+          thinking.label
+        </span>
+      </div>
+    </h2>
+    <div>
+      <div>
+        <p
+          class="text-sm text-foreground whitespace-pre-wrap font-mono"
+        >
+          Deep thought
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+`;

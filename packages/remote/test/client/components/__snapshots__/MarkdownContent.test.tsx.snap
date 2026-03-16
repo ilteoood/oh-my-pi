@@ -1,0 +1,13 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`MarkdownContent > matches snapshot 1`] = `
+<div
+  class="prose prose-sm prose-invert max-w-none prose-pre:bg-surface-secondary prose-pre:text-foreground prose-code:text-[var(--color-accent)] prose-code:before:content-none prose-code:after:content-none"
+>
+  <span
+    data-testid="markdown"
+  >
+    # Title
+  </span>
+</div>
+`;
