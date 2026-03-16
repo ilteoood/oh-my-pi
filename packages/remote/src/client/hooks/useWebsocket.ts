@@ -119,7 +119,7 @@ export function useWebSocket(): { sendCommand: (cmd: RpcCommand) => void } {
 					s.turnEnd();
 					break;
 				case "agent_end":
-					s.agentEnd((data.messages as Message[] | undefined) ?? undefined);
+					s.agentEnd();
 					break;
 				case "agent_start":
 				case "turn_start":

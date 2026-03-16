@@ -45,7 +45,7 @@ interface SessionStore {
 	toolExecutionUpdate: (id: string, updates: { args?: Record<string, unknown>; partialResult?: unknown }) => void;
 	toolExecutionEnd: (id: string, result: unknown, isError?: boolean) => void;
 	turnEnd: () => void;
-	agentEnd: (messages?: Message[]) => void;
+	agentEnd: () => void;
 	compactionStart: () => void;
 	compactionEnd: () => void;
 	retryStart: (info: RetryInfo) => void;
@@ -147,12 +147,11 @@ export const useSessionStore = create<SessionStore>(set => ({
 
 	turnEnd: () => set({ isStreaming: false }),
 
-	agentEnd: messages =>
+	agentEnd: () =>
 		set(_prev => ({
 			isStreaming: false,
 			streamingContent: [],
 			streamingRole: null,
-			...(messages ? { messages } : {}),
 		})),
 
 	compactionStart: () => set({ isCompacting: true }),
