@@ -24,7 +24,7 @@ const THINKING_LEVELS: ThinkingLevel[] = ["off", "minimal", "low", "medium", "hi
 export function SettingsDrawer({ sendCommand }: SettingsDrawerProps) {
 	const { t } = useTranslation();
 	const { settingsOpen, closeSettings } = useUIStore();
-	const sessionState = useSessionStore(s => s.sessionState);
+	const {messages, sessionState} = useSessionStore();
 	const [sessionName, setSessionName] = useState("");
 
 	const state = useOverlayState({
@@ -176,7 +176,7 @@ export function SettingsDrawer({ sendCommand }: SettingsDrawerProps) {
 										<div className="flex gap-2">
 											<input
 												type="text"
-												className="flex-1 rounded-lg border border-[var(--color-border)] bg-default px-3 py-2 text-sm focus:outline-none focus:border-[var(--color-accent)]"
+												className="flex-1 rounded-lg border border-(--color-border) bg-default px-3 py-2 text-sm focus:outline-none focus:border-(--color-accent)"
 												placeholder={sessionState.sessionName ?? t("settings.sessionNamePlaceholder")}
 												value={sessionName}
 												onChange={e => setSessionName(e.target.value)}
@@ -208,7 +208,7 @@ export function SettingsDrawer({ sendCommand }: SettingsDrawerProps) {
 								{/* Info */}
 								<div className="text-xs text-muted space-y-1">
 									<p>{t("settings.sessionId", { id: sessionState.sessionId })}</p>
-									<p>{t("settings.messages", { count: sessionState.messageCount })}</p>
+									<p>{t("settings.messages", { count: messages.length })}</p>
 									{sessionState.queuedMessageCount > 0 && (
 										<p>{t("settings.queued", { count: sessionState.queuedMessageCount })}</p>
 									)}
