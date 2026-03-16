@@ -2,6 +2,34 @@
 
 ## [Unreleased]
 
+## [13.12.8] - 2026-03-16
+
+### Breaking Changes
+
+- Changed `SessionManager.create()` to require explicit `sessionDir` parameter instead of optional—callers must now pass `SessionManager.getDefaultSessionDir(cwd)` to use default behavior
+- Changed `SessionManager.continueRecent()` to require explicit `sessionDir` parameter instead of optional—callers must now pass `SessionManager.getDefaultSessionDir(cwd)` to use default behavior
+- Changed `SessionManager.forkFrom()` to require explicit `sessionDir` parameter instead of optional—callers must now pass `SessionManager.getDefaultSessionDir(cwd)` to use default behavior
+- Changed `SessionManager.list()` signature to accept only `sessionDir` parameter instead of `cwd` and optional `sessionDir`—callers must now compute and pass the session directory explicitly
+
+### Added
+
+- Added `SessionManager.getDefaultSessionDir()` static method to explicitly resolve the canonical default session directory for a working directory
+- Added support for quoted paths in grep, ast_grep, and find tools to handle directory names with spaces
+- Added `normalizePathLikeInput` utility function to consistently handle quoted and whitespace-trimmed path inputs
+
+### Changed
+
+- Made `sessionDir` parameter optional in `SessionManager.create()`, `SessionManager.continueRecent()`, and `SessionManager.forkFrom()`—callers can now omit it to use the default session directory
+- Changed `SessionManager.list()` signature to accept `cwd` as the first parameter instead of requiring an explicit `sessionDir`—callers can now omit `sessionDir` to use the default for the given working directory
+- Updated `SessionManager.getDefaultSessionDir()` to accept optional `agentDir` parameter for computing session directories within a custom agent root
+- Improved status line path display to strip display roots using canonical path resolution, correctly handling symlink aliases to home and Projects directories
+- Improved error messaging in ast_grep when no matches are found with parse errors, now suggests narrowing `path`/`glob` or setting `lang` to resolve mis-scoped queries
+
+### Fixed
+
+- Fixed SDK-created default sessions to honor the configured `agentDir` for session storage, preventing tests from writing stray session directories into the real `~/.omp/agent/sessions` root
+- Fixed session directory resolution to correctly handle symlink-equivalent paths, ensuring aliased home and temp directories resolve to the same session storage location as their real targets
+
 ## [13.12.7] - 2026-03-16
 ### Changed
 

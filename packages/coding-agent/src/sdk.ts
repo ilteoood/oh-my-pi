@@ -191,7 +191,7 @@ export interface CreateAgentSessionOptions {
 	/** Parent task ID prefix for nested artifact naming (e.g., "6-Extensions") */
 	parentTaskPrefix?: string;
 
-	/** Session manager. Default: SessionManager.create(cwd) */
+	/** Session manager. Default: session stored under the configured agentDir sessions root */
 	sessionManager?: SessionManager;
 
 	/** Settings instance. Default: Settings.init({ cwd, agentDir }) */
@@ -656,7 +656,11 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 		setPreferredImageProvider(imageProvider);
 	}
 
-	const sessionManager = options.sessionManager ?? logger.time("sessionManager", SessionManager.create, cwd);
+	const sessionManager =
+		options.sessionManager ??
+		logger.time("sessionManager", () =>
+			SessionManager.create(cwd, SessionManager.getDefaultSessionDir(cwd, agentDir)),
+		);
 	const sessionId = sessionManager.getSessionId();
 	const modelApiKeyAvailability = new Map<string, boolean>();
 	const getModelAvailabilityKey = (candidate: Model): string =>
