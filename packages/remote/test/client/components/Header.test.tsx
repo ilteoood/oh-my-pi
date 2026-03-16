@@ -158,7 +158,9 @@ describe("Header", () => {
 				sessionState: { ...baseSessionState, model: { provider: "a", id: "b", name: "Claude" } },
 			});
 			renderHeader();
-			fireEvent.click(screen.getByRole("button", { name: "Claude" }));
+			const claudeButtons = screen.getAllByRole("button", { name: "Claude" });
+			const modelButton = claudeButtons.find(el => el.tagName === "BUTTON")!;
+			fireEvent.click(modelButton);
 			expect(openModelSelect).toHaveBeenCalledOnce();
 		});
 	});

@@ -1,7 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@heroui/react', async () => await import('../../mocks/heroui'));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string, opts?: Record<string, unknown>) => opts ? `${key}:${JSON.stringify(opts)}` : key }) }));
 vi.mock('react-icons/io5', () => ({ IoClose: () => null }));
 
@@ -38,8 +37,8 @@ describe('StatusOverlay', () => {
 	it('shows compacting spinner when isCompacting is true', () => {
 		useSessionStore.setState({ isCompacting: true });
 		render(<StatusOverlay />);
-		// Spinner from heroui mock renders as role="status"
-		expect(screen.getByRole('status')).toBeDefined();
+		// HeroUI Spinner renders <span data-slot="spinner">, not role="status"
+		expect(document.querySelector('[data-slot="spinner"]')).toBeTruthy();
 		expect(screen.getByText('status.compacting')).toBeDefined();
 	});
 
@@ -49,7 +48,7 @@ describe('StatusOverlay', () => {
 			retryInfo: { attempt: 2, maxAttempts: 5, delayMs: 500, errorMessage: 'timeout' },
 		});
 		render(<StatusOverlay />);
-		expect(screen.getByRole('status')).toBeDefined();
+		expect(document.querySelector('[data-slot="spinner"]')).toBeTruthy();
 		// The t() mock interpolates opts as JSON, so the text contains the key
 		const el = screen.getByText((text) => text.includes('status.retrying'));
 		expect(el).toBeDefined();
@@ -72,7 +71,7 @@ describe('StatusOverlay', () => {
 	it('shows both compacting and error simultaneously when both are set', () => {
 		useSessionStore.setState({ isCompacting: true, error: 'parallel error' });
 		render(<StatusOverlay />);
-		expect(screen.getByRole('status')).toBeDefined();
+		expect(document.querySelector('[data-slot="spinner"]')).toBeTruthy();
 		expect(screen.getByText('parallel error')).toBeDefined();
 	});
 });

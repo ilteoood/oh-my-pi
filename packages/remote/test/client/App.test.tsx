@@ -1,7 +1,6 @@
 import { render } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('@heroui/react', async () => await import('../mocks/heroui'));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 vi.mock('../../src/client/pages/ChatPage', () => ({
 	ChatPage: () => <div data-testid="chat-page" />,

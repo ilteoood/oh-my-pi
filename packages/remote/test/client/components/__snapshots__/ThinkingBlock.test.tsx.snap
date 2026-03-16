@@ -2,27 +2,81 @@
 
 exports[`ThinkingBlock > matches snapshot 1`] = `
 <div
-  class="my-2"
+  class="accordion my-2"
+  data-rac=""
+  data-slot="accordion"
 >
   <div
-    id="thinking"
+    class="accordion__item"
+    data-rac=""
+    data-slot="accordion-item"
   >
-    <h2>
-      <div>
+    <h3
+      class="accordion__heading"
+      data-slot="accordion-heading"
+    >
+      <button
+        aria-controls="react-aria-_r_c_"
+        aria-expanded="false"
+        class="accordion__trigger"
+        data-rac=""
+        data-react-aria-pressable="true"
+        data-slot="accordion-trigger"
+        id="react-aria-_r_b_"
+        slot="trigger"
+        tabindex="0"
+        type="button"
+      >
         <span
           class="text-sm text-muted flex items-center gap-1"
         >
           thinking.label
         </span>
-      </div>
-    </h2>
-    <div>
-      <div>
-        <p
-          class="text-sm text-foreground whitespace-pre-wrap font-mono"
+        <svg
+          aria-hidden="true"
+          aria-label="Chevron down icon"
+          class="accordion__indicator"
+          data-slot="accordion-indicator"
+          fill="none"
+          height="16"
+          role="presentation"
+          viewBox="0 0 16 16"
+          width="16"
+          xmlns="http://www.w3.org/2000/svg"
         >
-          Deep thought
-        </p>
+          <path
+            clip-rule="evenodd"
+            d="M2.97 5.47a.75.75 0 0 1 1.06 0L8 9.44l3.97-3.97a.75.75 0 1 1 1.06 1.06l-4.5 4.5a.75.75 0 0 1-1.06 0l-4.5-4.5a.75.75 0 0 1 0-1.06"
+            fill="currentColor"
+            fill-rule="evenodd"
+          />
+        </svg>
+      </button>
+    </h3>
+    <div
+      aria-hidden="true"
+      aria-labelledby="react-aria-_r_b_"
+      class="accordion__panel"
+      data-rac=""
+      data-slot="accordion-panel"
+      hidden="until-found"
+      id="react-aria-_r_c_"
+      role="group"
+      style="--disclosure-panel-width: 0px; --disclosure-panel-height: 0px;"
+    >
+      <div
+        class="accordion__body"
+        data-slot="accordion-body"
+      >
+        <div
+          class="accordion__body-inner"
+        >
+          <p
+            class="text-sm text-foreground whitespace-pre-wrap font-mono"
+          >
+            Deep thought
+          </p>
+        </div>
       </div>
     </div>
   </div>

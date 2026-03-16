@@ -45,13 +45,13 @@ describe("ToolCallCard status rendering", () => {
 	it("shows Spinner when status is running", () => {
 		setExecution({ id: "t1", name: "bash", args: { command: "ls" }, status: "running" });
 		render(<ToolCallCard id="t1" name="bash" args={{ command: "ls" }} />);
-		expect(screen.getByRole("status")).toBeTruthy();
+		expect(document.querySelector('[data-slot="spinner"]')).toBeTruthy();
 	});
 
 	it("shows done chip when status is complete and not error", () => {
 		setExecution({ id: "t1", name: "bash", args: {}, status: "complete", isError: false });
 		render(<ToolCallCard id="t1" name="bash" args={{}} />);
-		expect(screen.queryByRole("status")).toBeNull();
+		expect(document.querySelector('[data-slot="spinner"]')).toBeNull();
 		expect(screen.getByText("tool.status.done")).toBeTruthy();
 	});
 

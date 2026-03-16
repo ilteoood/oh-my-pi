@@ -52,16 +52,20 @@ describe("SettingsDrawer", () => {
 			useSessionStore.setState({ sessionState: { ...baseSessionState, thinkingLevel: "off" } });
 			render(<SettingsDrawer sendCommand={sendCommand} />);
 
-			const select = screen.getByRole("combobox", { name: "settings.thinkingLevel" });
-			expect((select as HTMLSelectElement).value).toBe("off");
+			const trigger = screen.getByRole("button", { name: /settings\.thinkingLevel/ });
+			const selectContainer = trigger.closest('[data-slot="select"]')!;
+			const nativeSelect = selectContainer.querySelector('[data-testid="hidden-select-container"] select') as HTMLSelectElement;
+			expect(nativeSelect.value).toBe("off");
 		});
 
 		it("sends set_thinking_level command when value changes", () => {
 			useSessionStore.setState({ sessionState: baseSessionState });
 			render(<SettingsDrawer sendCommand={sendCommand} />);
 
-			const select = screen.getByRole("combobox", { name: "settings.thinkingLevel" });
-			fireEvent.change(select, { target: { value: "minimal" } });
+			const trigger = screen.getByRole("button", { name: /settings\.thinkingLevel/ });
+			const selectContainer = trigger.closest('[data-slot="select"]')!;
+			const nativeSelect = selectContainer.querySelector('[data-testid="hidden-select-container"] select') as HTMLSelectElement;
+			fireEvent.change(nativeSelect, { target: { value: "minimal" } });
 			expect(sendCommand).toHaveBeenCalledWith({ type: "set_thinking_level", level: "minimal" });
 		});
 	});
@@ -91,16 +95,20 @@ describe("SettingsDrawer", () => {
 			useSessionStore.setState({ sessionState: { ...baseSessionState, steeringMode: "all" } });
 			render(<SettingsDrawer sendCommand={sendCommand} />);
 
-			const select = screen.getByRole("combobox", { name: "settings.steeringMode" });
-			expect((select as HTMLSelectElement).value).toBe("all");
+			const trigger = screen.getByRole("button", { name: /settings\.steeringMode/ });
+			const selectContainer = trigger.closest('[data-slot="select"]')!;
+			const nativeSelect = selectContainer.querySelector('[data-testid="hidden-select-container"] select') as HTMLSelectElement;
+			expect(nativeSelect.value).toBe("all");
 		});
 
 		it("sends set_steering_mode when changed", () => {
 			useSessionStore.setState({ sessionState: baseSessionState });
 			render(<SettingsDrawer sendCommand={sendCommand} />);
 
-			const select = screen.getByRole("combobox", { name: "settings.steeringMode" });
-			fireEvent.change(select, { target: { value: "one-at-a-time" } });
+			const trigger = screen.getByRole("button", { name: /settings\.steeringMode/ });
+			const selectContainer = trigger.closest('[data-slot="select"]')!;
+			const nativeSelect = selectContainer.querySelector('[data-testid="hidden-select-container"] select') as HTMLSelectElement;
+			fireEvent.change(nativeSelect, { target: { value: "one-at-a-time" } });
 			expect(sendCommand).toHaveBeenCalledWith({ type: "set_steering_mode", mode: "one-at-a-time" });
 		});
 	});
@@ -110,16 +118,20 @@ describe("SettingsDrawer", () => {
 			useSessionStore.setState({ sessionState: { ...baseSessionState, followUpMode: "all" } });
 			render(<SettingsDrawer sendCommand={sendCommand} />);
 
-			const select = screen.getByRole("combobox", { name: "settings.followUpMode" });
-			expect((select as HTMLSelectElement).value).toBe("all");
+			const trigger = screen.getByRole("button", { name: /settings\.followUpMode/ });
+			const selectContainer = trigger.closest('[data-slot="select"]')!;
+			const nativeSelect = selectContainer.querySelector('[data-testid="hidden-select-container"] select') as HTMLSelectElement;
+			expect(nativeSelect.value).toBe("all");
 		});
 
 		it("sends set_follow_up_mode when changed", () => {
 			useSessionStore.setState({ sessionState: baseSessionState });
 			render(<SettingsDrawer sendCommand={sendCommand} />);
 
-			const select = screen.getByRole("combobox", { name: "settings.followUpMode" });
-			fireEvent.change(select, { target: { value: "one-at-a-time" } });
+			const trigger = screen.getByRole("button", { name: /settings\.followUpMode/ });
+			const selectContainer = trigger.closest('[data-slot="select"]')!;
+			const nativeSelect = selectContainer.querySelector('[data-testid="hidden-select-container"] select') as HTMLSelectElement;
+			fireEvent.change(nativeSelect, { target: { value: "one-at-a-time" } });
 			expect(sendCommand).toHaveBeenCalledWith({ type: "set_follow_up_mode", mode: "one-at-a-time" });
 		});
 	});
@@ -129,16 +141,20 @@ describe("SettingsDrawer", () => {
 			useSessionStore.setState({ sessionState: { ...baseSessionState, interruptMode: "immediate" } });
 			render(<SettingsDrawer sendCommand={sendCommand} />);
 
-			const select = screen.getByRole("combobox", { name: "settings.interruptMode" });
-			expect((select as HTMLSelectElement).value).toBe("immediate");
+			const trigger = screen.getByRole("button", { name: /settings\.interruptMode/ });
+			const selectContainer = trigger.closest('[data-slot="select"]')!;
+			const nativeSelect = selectContainer.querySelector('[data-testid="hidden-select-container"] select') as HTMLSelectElement;
+			expect(nativeSelect.value).toBe("immediate");
 		});
 
 		it("sends set_interrupt_mode when changed", () => {
 			useSessionStore.setState({ sessionState: baseSessionState });
 			render(<SettingsDrawer sendCommand={sendCommand} />);
 
-			const select = screen.getByRole("combobox", { name: "settings.interruptMode" });
-			fireEvent.change(select, { target: { value: "wait" } });
+			const trigger = screen.getByRole("button", { name: /settings\.interruptMode/ });
+			const selectContainer = trigger.closest('[data-slot="select"]')!;
+			const nativeSelect = selectContainer.querySelector('[data-testid="hidden-select-container"] select') as HTMLSelectElement;
+			fireEvent.change(nativeSelect, { target: { value: "wait" } });
 			expect(sendCommand).toHaveBeenCalledWith({ type: "set_interrupt_mode", mode: "wait" });
 		});
 	});
