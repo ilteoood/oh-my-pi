@@ -12,7 +12,7 @@ interface InfoModalProps {
 export function InfoModal({ variant }: InfoModalProps) {
 	const { hotkeysOpen, closeHotkeys, sessionStatsOpen, closeSessionStats } = useUIStore();
 	const { t } = useTranslation();
-	const {sessionStats} = useSessionStore();
+	const { sessionStats } = useSessionStore();
 	const isHotkeys = variant === "hotkeys";
 
 	const open = isHotkeys ? hotkeysOpen : sessionStatsOpen;
@@ -61,7 +61,7 @@ const HOTKEYS = [
 	["↑ / ↓", "hotkeys.keys.arrowUpDown"],
 	["Tab or Enter", "hotkeys.keys.tabOrEnter"],
 	["Escape", "hotkeys.keys.escape"],
-]
+];
 
 function HotkeysContent() {
 	const { t } = useTranslation();
@@ -90,7 +90,7 @@ function HotkeysContent() {
 									/{cmd.name}
 									{cmd.inlineHint ? ` ${cmd.inlineHint}` : ""}
 								</td>
-							<td className="py-1.5 text-foreground">{t(`slashCommands.descriptions.${cmd.name}`)}</td>
+								<td className="py-1.5 text-foreground">{t(`slashCommands.descriptions.${cmd.name}`)}</td>
 							</tr>
 						))}
 					</tbody>

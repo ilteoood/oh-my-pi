@@ -68,7 +68,12 @@ function fuzzyScore(query: string, target: string): number {
 // client-side actions available in the web UI.
 export const WEB_SLASH_COMMANDS: ReadonlyArray<WebSlashCommandDef> = [
 	{ name: "new", description: t("slashCommands.descriptions.new") },
-	{ name: "compact", description: t("slashCommands.descriptions.compact"), inlineHint: t("slashCommands.descriptions.compactHint"), allowArgs: true },
+	{
+		name: "compact",
+		description: t("slashCommands.descriptions.compact"),
+		inlineHint: t("slashCommands.descriptions.compactHint"),
+		allowArgs: true,
+	},
 	{ name: "model", description: t("slashCommands.descriptions.model") },
 	{
 		name: "thinking",
@@ -117,7 +122,12 @@ export const WEB_SLASH_COMMANDS: ReadonlyArray<WebSlashCommandDef> = [
 	},
 	{ name: "dump", description: t("slashCommands.descriptions.dump") },
 	{ name: "session", description: t("slashCommands.descriptions.session") },
-	{ name: "btw", description: t("slashCommands.descriptions.btw"), inlineHint: t("slashCommands.descriptions.btwHint"), allowArgs: true },
+	{
+		name: "btw",
+		description: t("slashCommands.descriptions.btw"),
+		inlineHint: t("slashCommands.descriptions.btwHint"),
+		allowArgs: true,
+	},
 	{ name: "settings", description: t("slashCommands.descriptions.settings") },
 	{ name: "hotkeys", description: t("slashCommands.descriptions.hotkeys") },
 ];

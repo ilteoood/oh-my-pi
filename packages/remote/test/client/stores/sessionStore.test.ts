@@ -313,9 +313,7 @@ describe("setError", () => {
 
 describe("setAvailableModels", () => {
 	it("replaces the available models list", () => {
-		const models: ModelInfo[] = [
-			{ provider: "anthropic", id: "claude-3-5-sonnet", name: "Claude 3.5 Sonnet" },
-		];
+		const models: ModelInfo[] = [{ provider: "anthropic", id: "claude-3-5-sonnet", name: "Claude 3.5 Sonnet" }];
 		useSessionStore.getState().setAvailableModels(models);
 		expect(useSessionStore.getState().availableModels).toEqual(models);
 	});

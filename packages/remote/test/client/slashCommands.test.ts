@@ -424,8 +424,7 @@ describe("executeSlashCommand", () => {
 				messages: [
 					{
 						role: "assistant",
-						content:
-							"Hello\n```typescript\nconsole.log('hi')\n```\n\n```bash\necho hello\n```",
+						content: "Hello\n```typescript\nconsole.log('hi')\n```\n\n```bash\necho hello\n```",
 					},
 				],
 				clearFileSearch: vi.fn(),

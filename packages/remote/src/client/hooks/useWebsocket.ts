@@ -19,7 +19,7 @@ const NEEDS_STATE_REFETCH_EVENTS = new Set<string | undefined>([
 	"set_plan_mode",
 	"toggle_fast_mode",
 	"set_fast_mode",
-])
+]);
 
 export function useWebSocket(): { sendCommand: (cmd: RpcCommand) => void } {
 	const wsRef = useRef<WebSocket | null>(null);

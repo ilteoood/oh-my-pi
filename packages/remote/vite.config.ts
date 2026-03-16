@@ -26,17 +26,13 @@ export default defineConfig({
 		coverage: {
 			provider: "v8",
 			include: ["src/**/*.{ts,tsx}"],
-			exclude: [
-				"src/client/main.tsx",
-				"src/client/types.ts",
-				"src/client/styles.css",
-			],
+			exclude: ["src/client/main.tsx", "src/client/types.ts", "src/client/styles.css"],
 			thresholds: {
 				statements: 90,
 				branches: 85,
 				functions: 90,
 				lines: 90,
 			},
-		}
-	}
+		},
+	},
 });

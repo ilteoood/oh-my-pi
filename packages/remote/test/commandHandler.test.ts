@@ -103,7 +103,10 @@ describe("getSessionState", () => {
 
 	it("derives planModeEnabled from getPlanModeState().enabled", () => {
 		const session = makeSession();
-		(session.getPlanModeState as ReturnType<typeof vi.fn>).mockReturnValue({ enabled: true, planFilePath: "/tmp/plan.md" });
+		(session.getPlanModeState as ReturnType<typeof vi.fn>).mockReturnValue({
+			enabled: true,
+			planFilePath: "/tmp/plan.md",
+		});
 
 		const state = getSessionState(session);
 		expect(state.planModeEnabled).toBe(true);
@@ -202,14 +205,24 @@ describe("handleCommand", () => {
 		it("returns cancelled:false when newSession resolves true", async () => {
 			const res = await handleCommand(session, { type: "new_session" });
 
-			expect(res).toMatchObject({ type: "response", command: "new_session", success: true, data: { cancelled: false } });
+			expect(res).toMatchObject({
+				type: "response",
+				command: "new_session",
+				success: true,
+				data: { cancelled: false },
+			});
 		});
 
 		it("returns cancelled:true when newSession resolves false", async () => {
 			(session.newSession as ReturnType<typeof vi.fn>).mockResolvedValue(false);
 			const res = await handleCommand(session, { type: "new_session" });
 
-			expect(res).toMatchObject({ type: "response", command: "new_session", success: true, data: { cancelled: true } });
+			expect(res).toMatchObject({
+				type: "response",
+				command: "new_session",
+				success: true,
+				data: { cancelled: true },
+			});
 		});
 
 		it("passes parentSession option when provided", async () => {
@@ -348,7 +361,12 @@ describe("handleCommand", () => {
 			const res = await handleCommand(session, { type: "compact" });
 
 			expect(session.compact).toHaveBeenCalledWith(undefined);
-			expect(res).toMatchObject({ type: "response", command: "compact", success: true, data: { summary: "compacted" } });
+			expect(res).toMatchObject({
+				type: "response",
+				command: "compact",
+				success: true,
+				data: { summary: "compacted" },
+			});
 		});
 
 		it("passes customInstructions to compact", async () => {
@@ -415,7 +433,12 @@ describe("handleCommand", () => {
 		it("returns messages array", async () => {
 			const res = await handleCommand(session, { type: "get_messages" });
 
-			expect(res).toMatchObject({ type: "response", command: "get_messages", success: true, data: { messages: [] } });
+			expect(res).toMatchObject({
+				type: "response",
+				command: "get_messages",
+				success: true,
+				data: { messages: [] },
+			});
 		});
 	});
 
@@ -467,7 +490,12 @@ describe("handleCommand", () => {
 			const res = await handleCommand(session, { type: "toggle_fast_mode" });
 
 			expect(session.toggleFastMode).toHaveBeenCalled();
-			expect(res).toMatchObject({ type: "response", command: "toggle_fast_mode", success: true, data: { enabled: true } });
+			expect(res).toMatchObject({
+				type: "response",
+				command: "toggle_fast_mode",
+				success: true,
+				data: { enabled: true },
+			});
 		});
 	});
 
@@ -576,7 +604,9 @@ describe("handleCommand", () => {
 
 	describe("unknown command", () => {
 		it("returns error response for unrecognized command type", async () => {
-			const res = await handleCommand(session, { type: "unknown_cmd" } as unknown as Parameters<typeof handleCommand>[1]);
+			const res = await handleCommand(session, { type: "unknown_cmd" } as unknown as Parameters<
+				typeof handleCommand
+			>[1]);
 
 			expect(res).toMatchObject({ type: "response", command: "unknown_cmd", success: false });
 			expect((res as { error: string }).error).toContain("Unknown command");

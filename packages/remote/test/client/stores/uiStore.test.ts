@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { useUIStore } from "../../../src/client/stores/uiStore";
 
 const initialState = {

@@ -20,16 +20,10 @@ const {
 		use: vi.fn(),
 		fetch: vi.fn(),
 	};
-	const mockUpgradeWebSocket = vi.fn(
-		(factory: () => Record<string, unknown>) => factory,
-	);
+	const mockUpgradeWebSocket = vi.fn((factory: () => Record<string, unknown>) => factory);
 	const mockBunServeFn = vi.fn().mockReturnValue({ port: 3848, stop: vi.fn() });
-	const mockGetSessionState = vi
-		.fn()
-		.mockReturnValue({ type: "state", connected: true });
-	const mockHandleCommand = vi
-		.fn()
-		.mockResolvedValue({ type: "response", command: "ping", success: true });
+	const mockGetSessionState = vi.fn().mockReturnValue({ type: "state", connected: true });
+	const mockHandleCommand = vi.fn().mockResolvedValue({ type: "response", command: "ping", success: true });
 
 	// Stub the Bun global before any module import so server.ts can access
 	// Bun.env and Bun.serve at module-evaluation time. vitest's node
@@ -67,15 +61,12 @@ const {
 // vitest's transform does not preserve Bun's import.meta extensions, so
 // import.meta.dir is undefined. Intercept path.join to substitute a safe
 // placeholder, allowing the module to load without crashing.
-vi.mock("node:path", async (importOriginal) => {
+vi.mock("node:path", async importOriginal => {
 	const nodePath = await importOriginal<typeof import("node:path")>();
 	const origJoin = nodePath.join.bind(nodePath);
 	return {
 		...nodePath,
-		join: (...segments: string[]) =>
-			origJoin(
-				...segments.map((s) => (s as string | undefined) ?? "/vitest/mock"),
-			),
+		join: (...segments: string[]) => origJoin(...segments.map(s => (s as string | undefined) ?? "/vitest/mock")),
 	};
 });
 
@@ -109,7 +100,7 @@ vi.mock("@oh-my-pi/pi-natives", () => ({
 	fuzzyFind: vi.fn().mockResolvedValue({ matches: [] }),
 }));
 
-vi.mock("node:fs/promises", async (importOriginal) => {
+vi.mock("node:fs/promises", async importOriginal => {
 	const actual = await importOriginal<typeof import("node:fs/promises")>();
 	return { ...actual, readdir: vi.fn(), stat: vi.fn() };
 });
@@ -158,10 +149,7 @@ function makeSession() {
 
 type WsHandlers = {
 	onOpen: (event: unknown, ws: ReturnType<typeof makeMockWs>) => void;
-	onMessage: (
-		event: { data: string | ArrayBuffer },
-		ws: ReturnType<typeof makeMockWs>,
-	) => Promise<void>;
+	onMessage: (event: { data: string | ArrayBuffer }, ws: ReturnType<typeof makeMockWs>) => Promise<void>;
 	onClose: (event: unknown, ws: ReturnType<typeof makeMockWs>) => void;
 };
 
@@ -173,9 +161,9 @@ type WsHandlers = {
  * factory() yields { onOpen, onMessage, onClose }.
  */
 function getWsHandlers(): WsHandlers {
-	const call = mockHonoApp.get.mock.calls.find(
-		([p]: [string]) => p === "/ws",
-	) as [string, () => Record<string, unknown>] | undefined;
+	const call = mockHonoApp.get.mock.calls.find(([p]: [string]) => p === "/ws") as
+		| [string, () => Record<string, unknown>]
+		| undefined;
 	if (!call) throw new Error("No /ws route registered on Hono app");
 	return call[1]() as WsHandlers;
 }
@@ -196,9 +184,7 @@ beforeEach(() => {
 
 	// Default: readdir throws so ensureClientBuild returns early (source dir
 	// not found). Tests that need a different fs shape override this.
-	vi.mocked(fsPromises.readdir).mockRejectedValue(
-		new Error("ENOENT: no such file or directory"),
-	);
+	vi.mocked(fsPromises.readdir).mockRejectedValue(new Error("ENOENT: no such file or directory"));
 
 	mockShellChain.exitCode = 0;
 	mockShell.mockReturnValue({
@@ -222,10 +208,7 @@ beforeEach(() => {
 describe("startRemoteServer", () => {
 	it("returns an object with port, url, and stop function", async () => {
 		const { session } = makeSession();
-		const result = await startRemoteServer(
-			session as unknown as Parameters<typeof startRemoteServer>[0],
-			3848,
-		);
+		const result = await startRemoteServer(session as unknown as Parameters<typeof startRemoteServer>[0], 3848);
 
 		expect(result).toHaveProperty("port");
 		expect(result).toHaveProperty("url");
@@ -234,28 +217,21 @@ describe("startRemoteServer", () => {
 
 	it("constructs url from the actual server port", async () => {
 		const { session } = makeSession();
-		const result = await startRemoteServer(
-			session as unknown as Parameters<typeof startRemoteServer>[0],
-			3848,
-		);
+		const result = await startRemoteServer(session as unknown as Parameters<typeof startRemoteServer>[0], 3848);
 
 		expect(result.url).toBe(`http://localhost:${result.port}`);
 	});
 
 	it("subscribes to session events", async () => {
 		const { session } = makeSession();
-		await startRemoteServer(
-			session as unknown as Parameters<typeof startRemoteServer>[0],
-		);
+		await startRemoteServer(session as unknown as Parameters<typeof startRemoteServer>[0]);
 
 		expect(session.subscribe).toHaveBeenCalledOnce();
 	});
 
 	it("registers a /ws route on the Hono app", async () => {
 		const { session } = makeSession();
-		await startRemoteServer(
-			session as unknown as Parameters<typeof startRemoteServer>[0],
-		);
+		await startRemoteServer(session as unknown as Parameters<typeof startRemoteServer>[0]);
 
 		const paths = mockHonoApp.get.mock.calls.map(([p]: [string]) => p);
 		expect(paths).toContain("/ws");
@@ -263,9 +239,7 @@ describe("startRemoteServer", () => {
 
 	it("registers static-file middleware", async () => {
 		const { session } = makeSession();
-		await startRemoteServer(
-			session as unknown as Parameters<typeof startRemoteServer>[0],
-		);
+		await startRemoteServer(session as unknown as Parameters<typeof startRemoteServer>[0]);
 
 		expect(mockHonoApp.use).toHaveBeenCalledWith("*", expect.any(Function));
 	});
@@ -278,43 +252,31 @@ describe("startRemoteServer", () => {
 describe("WebSocket onOpen", () => {
 	it("sends initial state snapshot to the newly connected client", async () => {
 		const { session } = makeSession();
-		await startRemoteServer(
-			session as unknown as Parameters<typeof startRemoteServer>[0],
-		);
+		await startRemoteServer(session as unknown as Parameters<typeof startRemoteServer>[0]);
 
 		const { onOpen } = getWsHandlers();
 		const ws = makeMockWs();
 		onOpen({}, ws);
 
-		const payloads = ws.send.mock.calls.map(
-			([raw]: [string]) => JSON.parse(raw) as Record<string, unknown>,
-		);
+		const payloads = ws.send.mock.calls.map(([raw]: [string]) => JSON.parse(raw) as Record<string, unknown>);
 		expect(payloads).toContainEqual(expect.objectContaining({ type: "state" }));
 	});
 
 	it("sends message history to the newly connected client", async () => {
 		const { session } = makeSession();
-		await startRemoteServer(
-			session as unknown as Parameters<typeof startRemoteServer>[0],
-		);
+		await startRemoteServer(session as unknown as Parameters<typeof startRemoteServer>[0]);
 
 		const { onOpen } = getWsHandlers();
 		const ws = makeMockWs();
 		onOpen({}, ws);
 
-		const payloads = ws.send.mock.calls.map(
-			([raw]: [string]) => JSON.parse(raw) as Record<string, unknown>,
-		);
-		expect(payloads).toContainEqual(
-			expect.objectContaining({ type: "messages" }),
-		);
+		const payloads = ws.send.mock.calls.map(([raw]: [string]) => JSON.parse(raw) as Record<string, unknown>);
+		expect(payloads).toContainEqual(expect.objectContaining({ type: "messages" }));
 	});
 
 	it("invokes getSessionState with the session", async () => {
 		const { session } = makeSession();
-		await startRemoteServer(
-			session as unknown as Parameters<typeof startRemoteServer>[0],
-		);
+		await startRemoteServer(session as unknown as Parameters<typeof startRemoteServer>[0]);
 
 		const { onOpen } = getWsHandlers();
 		onOpen({}, makeMockWs());
@@ -330,9 +292,7 @@ describe("WebSocket onOpen", () => {
 describe("WebSocket onMessage", () => {
 	it("handles valid JSON command and sends the response", async () => {
 		const { session } = makeSession();
-		await startRemoteServer(
-			session as unknown as Parameters<typeof startRemoteServer>[0],
-		);
+		await startRemoteServer(session as unknown as Parameters<typeof startRemoteServer>[0]);
 
 		const { onMessage } = getWsHandlers();
 		const ws = makeMockWs();
@@ -345,9 +305,7 @@ describe("WebSocket onMessage", () => {
 
 	it("sends an error response when the JSON is invalid", async () => {
 		const { session } = makeSession();
-		await startRemoteServer(
-			session as unknown as Parameters<typeof startRemoteServer>[0],
-		);
+		await startRemoteServer(session as unknown as Parameters<typeof startRemoteServer>[0]);
 
 		const { onMessage } = getWsHandlers();
 		const ws = makeMockWs();
@@ -365,16 +323,11 @@ describe("WebSocket onMessage", () => {
 		mockHandleCommand.mockRejectedValueOnce(new Error("command failed"));
 
 		const { session } = makeSession();
-		await startRemoteServer(
-			session as unknown as Parameters<typeof startRemoteServer>[0],
-		);
+		await startRemoteServer(session as unknown as Parameters<typeof startRemoteServer>[0]);
 
 		const { onMessage } = getWsHandlers();
 		const ws = makeMockWs();
-		await onMessage(
-			{ data: JSON.stringify({ id: "2", type: "abort" }) },
-			ws,
-		);
+		await onMessage({ data: JSON.stringify({ id: "2", type: "abort" }) }, ws);
 
 		const sent = JSON.parse(ws.send.mock.calls[0][0] as string) as {
 			success: boolean;
@@ -386,9 +339,7 @@ describe("WebSocket onMessage", () => {
 
 	it("accepts ArrayBuffer message data and parses it as string", async () => {
 		const { session } = makeSession();
-		await startRemoteServer(
-			session as unknown as Parameters<typeof startRemoteServer>[0],
-		);
+		await startRemoteServer(session as unknown as Parameters<typeof startRemoteServer>[0]);
 
 		const { onMessage } = getWsHandlers();
 		const ws = makeMockWs();
@@ -407,9 +358,7 @@ describe("WebSocket onMessage", () => {
 describe("WebSocket onClose", () => {
 	it("removes the client so it no longer receives broadcast events", async () => {
 		const { session, emit } = makeSession();
-		await startRemoteServer(
-			session as unknown as Parameters<typeof startRemoteServer>[0],
-		);
+		await startRemoteServer(session as unknown as Parameters<typeof startRemoteServer>[0]);
 
 		const { onOpen, onClose } = getWsHandlers();
 		const ws = makeMockWs();
@@ -431,9 +380,7 @@ describe("WebSocket onClose", () => {
 describe("session event broadcast", () => {
 	it("sends events to all connected clients", async () => {
 		const { session, emit } = makeSession();
-		await startRemoteServer(
-			session as unknown as Parameters<typeof startRemoteServer>[0],
-		);
+		await startRemoteServer(session as unknown as Parameters<typeof startRemoteServer>[0]);
 
 		const { onOpen } = getWsHandlers();
 		const ws1 = makeMockWs();
@@ -455,9 +402,7 @@ describe("session event broadcast", () => {
 
 	it("removes a client that throws during broadcast and continues", async () => {
 		const { session, emit } = makeSession();
-		await startRemoteServer(
-			session as unknown as Parameters<typeof startRemoteServer>[0],
-		);
+		await startRemoteServer(session as unknown as Parameters<typeof startRemoteServer>[0]);
 
 		const { onOpen } = getWsHandlers();
 		const faultyWs = makeMockWs();
@@ -492,9 +437,7 @@ describe("session event broadcast", () => {
 describe("stop", () => {
 	it("calls the unsubscribe function returned by session.subscribe", async () => {
 		const { session, unsubscribe } = makeSession();
-		const result = await startRemoteServer(
-			session as unknown as Parameters<typeof startRemoteServer>[0],
-		);
+		const result = await startRemoteServer(session as unknown as Parameters<typeof startRemoteServer>[0]);
 
 		result.stop();
 
@@ -503,9 +446,7 @@ describe("stop", () => {
 
 	it("calls server.stop()", async () => {
 		const { session } = makeSession();
-		const result = await startRemoteServer(
-			session as unknown as Parameters<typeof startRemoteServer>[0],
-		);
+		const result = await startRemoteServer(session as unknown as Parameters<typeof startRemoteServer>[0]);
 
 		result.stop();
 
@@ -514,9 +455,7 @@ describe("stop", () => {
 
 	it("closes all connected WebSocket clients", async () => {
 		const { session } = makeSession();
-		const result = await startRemoteServer(
-			session as unknown as Parameters<typeof startRemoteServer>[0],
-		);
+		const result = await startRemoteServer(session as unknown as Parameters<typeof startRemoteServer>[0]);
 
 		const { onOpen } = getWsHandlers();
 		const ws1 = makeMockWs();
@@ -532,9 +471,7 @@ describe("stop", () => {
 
 	it("tolerates clients that throw during close", async () => {
 		const { session } = makeSession();
-		const result = await startRemoteServer(
-			session as unknown as Parameters<typeof startRemoteServer>[0],
-		);
+		const result = await startRemoteServer(session as unknown as Parameters<typeof startRemoteServer>[0]);
 
 		const { onOpen } = getWsHandlers();
 		const ws = makeMockWs();
@@ -549,9 +486,7 @@ describe("stop", () => {
 
 	it("clears the client set so no events are broadcast after stop", async () => {
 		const { session, emit } = makeSession();
-		const result = await startRemoteServer(
-			session as unknown as Parameters<typeof startRemoteServer>[0],
-		);
+		const result = await startRemoteServer(session as unknown as Parameters<typeof startRemoteServer>[0]);
 
 		const { onOpen } = getWsHandlers();
 		const ws = makeMockWs();
@@ -575,13 +510,10 @@ describe("ensureClientBuild — source directory absent", () => {
 		// CLIENT_SRC_DIR. startRemoteServer must complete without error.
 		const { session } = makeSession();
 		await expect(
-			startRemoteServer(
-				session as unknown as Parameters<typeof startRemoteServer>[0],
-			),
+			startRemoteServer(session as unknown as Parameters<typeof startRemoteServer>[0]),
 		).resolves.toBeDefined();
 	});
 });
-
 
 // ---------------------------------------------------------------------------
 // ensureClientBuild — covers getLatestMtime body and build logic
@@ -606,14 +538,14 @@ describe("ensureClientBuild — getLatestMtime coverage", () => {
 
 		vi.mocked(fsPromises.stat)
 			// stat for app.ts (inside getLatestMtime)
-			.mockResolvedValueOnce({ mtimeMs: 1000, isFile: () => true } as unknown as Awaited<ReturnType<typeof fsPromises.stat>>)
+			.mockResolvedValueOnce({ mtimeMs: 1000, isFile: () => true } as unknown as Awaited<
+				ReturnType<typeof fsPromises.stat>
+			>)
 			// stat for indexPath (inside ensureClientBuild) — old mtime → shouldBuild=true
 			.mockRejectedValueOnce(new Error("ENOENT"));
 
 		const { session } = makeSession();
-		await startRemoteServer(
-			session as unknown as Parameters<typeof startRemoteServer>[0],
-		);
+		await startRemoteServer(session as unknown as Parameters<typeof startRemoteServer>[0]);
 
 		// $ should have been called because shouldBuild=true
 		expect(mockShell).toHaveBeenCalled();
@@ -625,19 +557,22 @@ describe("ensureClientBuild — getLatestMtime coverage", () => {
 			isDirectory: () => false,
 			isFile: () => true,
 		};
-		vi.mocked(fsPromises.readdir)
-			.mockResolvedValueOnce([fileEntry] as unknown as Awaited<ReturnType<typeof fsPromises.readdir>>);
+		vi.mocked(fsPromises.readdir).mockResolvedValueOnce([fileEntry] as unknown as Awaited<
+			ReturnType<typeof fsPromises.readdir>
+		>);
 
 		vi.mocked(fsPromises.stat)
 			// stat for app.ts — mtimeMs=1000
-			.mockResolvedValueOnce({ mtimeMs: 1000, isFile: () => true } as unknown as Awaited<ReturnType<typeof fsPromises.stat>>)
+			.mockResolvedValueOnce({ mtimeMs: 1000, isFile: () => true } as unknown as Awaited<
+				ReturnType<typeof fsPromises.stat>
+			>)
 			// stat for indexPath — mtimeMs=2000 (newer) → shouldBuild=false
-			.mockResolvedValueOnce({ mtimeMs: 2000, isFile: () => true } as unknown as Awaited<ReturnType<typeof fsPromises.stat>>);
+			.mockResolvedValueOnce({ mtimeMs: 2000, isFile: () => true } as unknown as Awaited<
+				ReturnType<typeof fsPromises.stat>
+			>);
 
 		const { session } = makeSession();
-		await startRemoteServer(
-			session as unknown as Parameters<typeof startRemoteServer>[0],
-		);
+		await startRemoteServer(session as unknown as Parameters<typeof startRemoteServer>[0]);
 
 		// $ should NOT have been called
 		expect(mockShell).not.toHaveBeenCalled();
@@ -649,10 +584,13 @@ describe("ensureClientBuild — getLatestMtime coverage", () => {
 			isDirectory: () => false,
 			isFile: () => true,
 		};
-		vi.mocked(fsPromises.readdir)
-			.mockResolvedValueOnce([fileEntry] as unknown as Awaited<ReturnType<typeof fsPromises.readdir>>);
+		vi.mocked(fsPromises.readdir).mockResolvedValueOnce([fileEntry] as unknown as Awaited<
+			ReturnType<typeof fsPromises.readdir>
+		>);
 		vi.mocked(fsPromises.stat)
-			.mockResolvedValueOnce({ mtimeMs: 1000, isFile: () => true } as unknown as Awaited<ReturnType<typeof fsPromises.stat>>)
+			.mockResolvedValueOnce({ mtimeMs: 1000, isFile: () => true } as unknown as Awaited<
+				ReturnType<typeof fsPromises.stat>
+			>)
 			.mockRejectedValueOnce(new Error("ENOENT"));
 
 		// Make $ return exitCode=1
@@ -664,10 +602,8 @@ describe("ensureClientBuild — getLatestMtime coverage", () => {
 		});
 
 		const { session } = makeSession();
-		await expect(
-			startRemoteServer(
-				session as unknown as Parameters<typeof startRemoteServer>[0],
-			),
-		).rejects.toThrow("Failed to build remote client");
+		await expect(startRemoteServer(session as unknown as Parameters<typeof startRemoteServer>[0])).rejects.toThrow(
+			"Failed to build remote client",
+		);
 	});
 });

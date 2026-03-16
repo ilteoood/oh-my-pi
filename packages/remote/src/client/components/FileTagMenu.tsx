@@ -51,7 +51,9 @@ export function FileTagMenu({ items, selectedIndex, onSelect, onChangeSelectedIn
 								onSelect(index);
 							}}
 						>
-							<span className="text-xs shrink-0 opacity-60">{item.isDirectory ? <IoFolderOpenSharp /> : <FaRegFileLines />}</span>
+							<span className="text-xs shrink-0 opacity-60">
+								{item.isDirectory ? <IoFolderOpenSharp /> : <FaRegFileLines />}
+							</span>
 							<span className="text-sm font-mono truncate">{item.path}</span>
 						</div>
 					);

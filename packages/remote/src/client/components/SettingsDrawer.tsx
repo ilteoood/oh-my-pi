@@ -24,7 +24,7 @@ const THINKING_LEVELS: ThinkingLevel[] = ["off", "minimal", "low", "medium", "hi
 export function SettingsDrawer({ sendCommand }: SettingsDrawerProps) {
 	const { t } = useTranslation();
 	const { settingsOpen, closeSettings } = useUIStore();
-	const {messages, sessionState} = useSessionStore();
+	const { messages, sessionState } = useSessionStore();
 	const [sessionName, setSessionName] = useState("");
 
 	const state = useOverlayState({
