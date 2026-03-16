@@ -2,7 +2,7 @@
 	"header": {
 		"brand": "oh-my-pi",
 		"noModel": "No model",
-		"cycleModelTooltip": "Click to cycle model",
+		"selectModelTooltip": "Click to select model",
 		"thinking": "thinking: {{level}}",
 		"streaming": "Streaming",
 		"compacting": "Compacting",
@@ -80,7 +80,8 @@
 		"descriptions": {
 			"new": "Start a new session",
 			"compact": "Compact session context",
-			"model": "Cycle to next model",
+			"compactHint": "[focus instructions]",
+			"model": "Select model",
 			"thinking": "Set thinking level",
 			"plan": "Toggle plan mode",
 			"fast": "Toggle fast/priority mode",
@@ -88,8 +89,35 @@
 			"dump": "Copy full transcript to clipboard",
 			"session": "Show session stats",
 			"btw": "Ask a side question",
+			"btwHint": "<question>",
 			"settings": "Open settings panel",
 			"hotkeys": "Show keyboard shortcuts"
+		},
+		"subcommands": {
+			"thinking": {
+				"off": "Disable thinking",
+				"minimal": "Minimal thinking budget",
+				"low": "Low thinking budget",
+				"medium": "Medium thinking budget",
+				"high": "High thinking budget",
+				"xhigh": "Maximum thinking budget"
+			},
+			"plan": {
+				"on": "Enable plan mode",
+				"off": "Disable plan mode",
+				"toggle": "Toggle plan mode"
+			},
+			"fast": {
+				"on": "Enable fast mode",
+				"off": "Disable fast mode",
+				"toggle": "Toggle fast mode"
+			},
+			"copy": {
+				"last": "Copy last assistant message",
+				"code": "Copy last code block",
+				"all": "Copy all code blocks",
+				"cmd": "Copy last bash/python command"
+			}
 		}
 	},
 	"fileTag": {
@@ -124,5 +152,9 @@
 		"total": "Total",
 		"cost": "Cost",
 		"loading": "Loading..."
+	},
+	"modelSelect": {
+		"title": "Select Model",
+		"noModels": "No models available"
 	}
 }

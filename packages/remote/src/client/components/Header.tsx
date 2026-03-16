@@ -12,7 +12,7 @@ interface HeaderProps {
 export function Header({ sendCommand }: HeaderProps) {
 	const { t } = useTranslation();
 	const { connected, sessionState, isStreaming, isCompacting } = useSessionStore();
-	const { openSettings } = useUIStore();
+	const { openSettings, openModelSelect } = useUIStore();
 
 	const modelName = sessionState?.model?.name ?? t("header.noModel");
 	const thinkingLevel = sessionState?.thinkingLevel ?? "off";
@@ -30,11 +30,11 @@ export function Header({ sendCommand }: HeaderProps) {
 			<div className="flex items-center gap-2">
 				<Tooltip>
 					<Tooltip.Trigger>
-						<Button variant="ghost" size="sm" onPress={() => sendCommand({ type: "cycle_model" })}>
+						<Button variant="ghost" size="sm" onPress={openModelSelect}>
 							{modelName}
 						</Button>
 					</Tooltip.Trigger>
-					<Tooltip.Content>{t("header.cycleModelTooltip")}</Tooltip.Content>
+					<Tooltip.Content>{t("header.selectModelTooltip")}</Tooltip.Content>
 				</Tooltip>
 				{thinkingLevel !== "off" && (
 					<Chip

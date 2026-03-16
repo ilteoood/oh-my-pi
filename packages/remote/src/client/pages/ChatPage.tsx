@@ -3,6 +3,7 @@ import { Header } from "../components/Header";
 import { InfoModal } from "../components/InfoModal";
 import { InputBar } from "../components/InputBar";
 import { MessageList } from "../components/MessageList";
+import { ModelSelectModal } from "../components/ModelSelectModal";
 import { SettingsDrawer } from "../components/SettingsDrawer";
 import { StatusOverlay } from "../components/StatusOverlay";
 import { useWebSocket } from "../hooks/useWebsocket";
@@ -10,7 +11,7 @@ import { useUIStore } from "../stores/uiStore";
 
 export function ChatPage() {
 	const { sendCommand } = useWebSocket();
-	const { sessionStatsOpen } = useUIStore();
+	const { sessionStatsOpen, modelSelectOpen } = useUIStore();
 
 	// Fetch fresh stats whenever the session stats modal is opened
 	useEffect(() => {
@@ -18,6 +19,13 @@ export function ChatPage() {
 			sendCommand({ type: "get_session_stats" });
 		}
 	}, [sessionStatsOpen, sendCommand]);
+
+	// Fetch available models whenever the model select modal is opened
+	useEffect(() => {
+		if (modelSelectOpen) {
+			sendCommand({ type: "get_available_models" });
+		}
+	}, [modelSelectOpen, sendCommand]);
 
 	return (
 		<>
@@ -30,6 +38,7 @@ export function ChatPage() {
 			<SettingsDrawer sendCommand={sendCommand} />
 			<InfoModal variant="hotkeys" />
 			<InfoModal variant="session" />
+			<ModelSelectModal sendCommand={sendCommand} />
 		</>
 	);
 }

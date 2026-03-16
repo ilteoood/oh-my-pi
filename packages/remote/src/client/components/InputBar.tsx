@@ -12,7 +12,6 @@ import {
 	parseSlashCommand,
 } from "../slashCommands";
 import { useSessionStore } from "../stores/sessionStore";
-import { useUIStore } from "../stores/uiStore";
 import type { RpcCommand } from "../types";
 import { FileTagMenu } from "./FileTagMenu";
 import { SlashCommandMenu } from "./SlashCommandMenu";
@@ -35,20 +34,21 @@ export function InputBar({ sendCommand }: InputBarProps) {
 
 	const { t } = useTranslation();
 
-	const { openSettings, openHotkeys, openSessionStats } = useUIStore();
-
 	// -------------------------------------------------------------------------
 	// @ file tagging — detect prefix and trigger debounced server search
 	// -------------------------------------------------------------------------
 
-	const updateAtPrefix = useCallback((text: string, cursorPos: number) => {
-		const info = extractAtPrefix(text, cursorPos);
-		setAtPrefix(info);
-		if (!info) {
-			// Clear stale file results when cursor leaves the @ token
-			clearFileSearch();
-		}
-	}, [clearFileSearch]);
+	const updateAtPrefix = useCallback(
+		(text: string, cursorPos: number) => {
+			const info = extractAtPrefix(text, cursorPos);
+			setAtPrefix(info);
+			if (!info) {
+				// Clear stale file results when cursor leaves the @ token
+				clearFileSearch();
+			}
+		},
+		[clearFileSearch],
+	);
 
 	// Stable query string used as effect dep (avoids object identity churn)
 	const atQuery = atPrefix?.query ?? null;
@@ -77,6 +77,8 @@ export function InputBar({ sendCommand }: InputBarProps) {
 	const isCommandMenu = commandMatches.length > 0;
 	const isSubcommandMenu = !isCommandMenu && subcommandMatches.length > 0;
 	const slashMenuItems = isCommandMenu ? commandMatches : subcommandMatches;
+	// Derive the parent command name when in subcommand mode for i18n key resolution
+	const subcommandParent = isSubcommandMenu ? (input.slice(1).split(" ")[0] ?? "").toLowerCase() : undefined;
 
 	// Unified menu length for keyboard navigation modulo
 	const activeMenuLength = isFileMenu ? atFileItems.length : slashMenuItems.length;
@@ -164,7 +166,7 @@ export function InputBar({ sendCommand }: InputBarProps) {
 	const applySelection = useCallback(
 		(index: number) => {
 			const selectionFunction = isFileMenu ? applyFileSelection : applySlashSelection;
-			selectionFunction(index)
+			selectionFunction(index);
 		},
 		[isFileMenu, applyFileSelection, applySlashSelection],
 	);
@@ -179,13 +181,7 @@ export function InputBar({ sendCommand }: InputBarProps) {
 				// Known command — execute via RPC / client action.
 				// If execution returns false the command needs more/valid args;
 				// leave the input intact so the user can complete it.
-				const executed = executeSlashCommand(parsed, {
-					sendCommand,
-					getMessages: () => useSessionStore.getState().messages,
-					onOpenSettings: openSettings,
-					onShowHotkeys: openHotkeys,
-					onShowSessionStats: openSessionStats,
-				});
+				const executed = executeSlashCommand(parsed, { sendCommand });
 				if (executed) setInput("");
 				return;
 			}
@@ -196,7 +192,7 @@ export function InputBar({ sendCommand }: InputBarProps) {
 			message: trimmed,
 		});
 		setInput("");
-	}, [input, connected, isStreaming, sendCommand, openSettings, openHotkeys, openSessionStats]);
+	}, [input, connected, isStreaming, sendCommand]);
 
 	const handleKeyDown = useCallback(
 		(e: React.KeyboardEvent) => {
@@ -261,6 +257,7 @@ export function InputBar({ sendCommand }: InputBarProps) {
 							onSelect={applySlashSelection}
 							onChangeSelectedIndex={setSelectedIndex}
 							isSubcommand={isSubcommandMenu}
+							parentCommand={subcommandParent}
 						/>
 					)}
 

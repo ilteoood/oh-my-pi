@@ -12,6 +12,8 @@ interface SlashCommandMenuProps {
 	onChangeSelectedIndex: (index: number) => void;
 	/** When true, items are subcommand names (no "/" prefix). */
 	isSubcommand?: boolean;
+	/** Parent command name — required when isSubcommand is true to resolve i18n keys. */
+	parentCommand?: string;
 }
 
 /**
@@ -29,6 +31,7 @@ export function SlashCommandMenu({
 	onSelect,
 	onChangeSelectedIndex,
 	isSubcommand = false,
+	parentCommand,
 }: SlashCommandMenuProps) {
 	const { t } = useTranslation();
 	const selectedRef = useRef<HTMLDivElement>(null);
@@ -75,8 +78,14 @@ export function SlashCommandMenu({
 								{isSubcommand ? item.name : `/${item.name}`}
 							</span>
 							{item.description && (
-								<span className={clsx("text-xs truncate", isSelected ? "text-(--color-accent)/70" : "text-muted")}>
-									{item.description}
+								<span
+									className={clsx("text-xs truncate", isSelected ? "text-(--color-accent)/70" : "text-muted")}
+								>
+									{isSubcommand && parentCommand
+										? t(`slashCommands.subcommands.${parentCommand}.${item.name}`, {
+												defaultValue: item.description,
+											})
+										: t(`slashCommands.descriptions.${item.name}`, { defaultValue: item.description })}
 								</span>
 							)}
 						</div>

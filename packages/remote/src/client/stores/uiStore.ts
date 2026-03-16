@@ -4,6 +4,7 @@ interface UIStore {
 	settingsOpen: boolean;
 	hotkeysOpen: boolean;
 	sessionStatsOpen: boolean;
+	modelSelectOpen: boolean;
 
 	openSettings: () => void;
 	closeSettings: () => void;
@@ -11,12 +12,15 @@ interface UIStore {
 	closeHotkeys: () => void;
 	openSessionStats: () => void;
 	closeSessionStats: () => void;
+	openModelSelect: () => void;
+	closeModelSelect: () => void;
 }
 
 export const useUIStore = create<UIStore>(set => ({
 	settingsOpen: false,
 	hotkeysOpen: false,
 	sessionStatsOpen: false,
+	modelSelectOpen: false,
 
 	openSettings: () => set({ settingsOpen: true }),
 	closeSettings: () => set({ settingsOpen: false }),
@@ -24,4 +28,6 @@ export const useUIStore = create<UIStore>(set => ({
 	closeHotkeys: () => set({ hotkeysOpen: false }),
 	openSessionStats: () => set({ sessionStatsOpen: true }),
 	closeSessionStats: () => set({ sessionStatsOpen: false }),
+	openModelSelect: () => set({ modelSelectOpen: true }),
+	closeModelSelect: () => set({ modelSelectOpen: false }),
 }));

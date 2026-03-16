@@ -1,3 +1,6 @@
+import { t } from "i18next";
+import { useSessionStore } from "./stores/sessionStore";
+import { useUIStore } from "./stores/uiStore";
 import type { Message, RpcCommand, TextContentPart, ThinkingLevel } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -64,59 +67,59 @@ function fuzzyScore(query: string, target: string): number {
 // Subset of the TUI builtin registry that maps cleanly onto RPC commands or
 // client-side actions available in the web UI.
 export const WEB_SLASH_COMMANDS: ReadonlyArray<WebSlashCommandDef> = [
-	{ name: "new", description: "Start a new session" },
-	{ name: "compact", description: "Compact session context", inlineHint: "[focus instructions]", allowArgs: true },
-	{ name: "model", description: "Cycle to next model" },
+	{ name: "new", description: t("slashCommands.descriptions.new") },
+	{ name: "compact", description: t("slashCommands.descriptions.compact"), inlineHint: t("slashCommands.descriptions.compactHint"), allowArgs: true },
+	{ name: "model", description: t("slashCommands.descriptions.model") },
 	{
 		name: "thinking",
-		description: "Set thinking level",
+		description: t("slashCommands.descriptions.thinking"),
 		allowArgs: true,
 		subcommands: [
-			{ name: "off", description: "Disable thinking" },
-			{ name: "minimal", description: "Minimal thinking budget" },
-			{ name: "low", description: "Low thinking budget" },
-			{ name: "medium", description: "Medium thinking budget" },
-			{ name: "high", description: "High thinking budget" },
-			{ name: "xhigh", description: "Maximum thinking budget" },
+			{ name: "off", description: t("slashCommands.subcommands.thinking.off") },
+			{ name: "minimal", description: t("slashCommands.subcommands.thinking.minimal") },
+			{ name: "low", description: t("slashCommands.subcommands.thinking.low") },
+			{ name: "medium", description: t("slashCommands.subcommands.thinking.medium") },
+			{ name: "high", description: t("slashCommands.subcommands.thinking.high") },
+			{ name: "xhigh", description: t("slashCommands.subcommands.thinking.xhigh") },
 		],
 	},
 	{
 		name: "plan",
-		description: "Toggle plan mode",
-		inlineHint: "[on|off|prompt]",
+		description: t("slashCommands.descriptions.plan"),
+		inlineHint: t("slashCommands.descriptions.planHint"),
 		allowArgs: true,
 		subcommands: [
-			{ name: "on", description: "Enable plan mode" },
-			{ name: "off", description: "Disable plan mode" },
-			{ name: "toggle", description: "Toggle plan mode" },
+			{ name: "on", description: t("slashCommands.subcommands.plan.on") },
+			{ name: "off", description: t("slashCommands.subcommands.plan.off") },
+			{ name: "toggle", description: t("slashCommands.subcommands.plan.toggle") },
 		],
 	},
 	{
 		name: "fast",
-		description: "Toggle fast/priority mode",
+		description: t("slashCommands.descriptions.fast"),
 		allowArgs: true,
 		subcommands: [
-			{ name: "on", description: "Enable fast mode" },
-			{ name: "off", description: "Disable fast mode" },
-			{ name: "toggle", description: "Toggle fast mode" },
+			{ name: "on", description: t("slashCommands.subcommands.fast.on") },
+			{ name: "off", description: t("slashCommands.subcommands.fast.off") },
+			{ name: "toggle", description: t("slashCommands.subcommands.fast.toggle") },
 		],
 	},
 	{
 		name: "copy",
-		description: "Copy to clipboard",
+		description: t("slashCommands.descriptions.copy"),
 		allowArgs: true,
 		subcommands: [
-			{ name: "last", description: "Copy last assistant message" },
-			{ name: "code", description: "Copy last code block" },
-			{ name: "all", description: "Copy all code blocks" },
-			{ name: "cmd", description: "Copy last bash/python command" },
+			{ name: "last", description: t("slashCommands.subcommands.copy.last") },
+			{ name: "code", description: t("slashCommands.subcommands.copy.code") },
+			{ name: "all", description: t("slashCommands.subcommands.copy.all") },
+			{ name: "cmd", description: t("slashCommands.subcommands.copy.cmd") },
 		],
 	},
-	{ name: "dump", description: "Copy full transcript to clipboard" },
-	{ name: "session", description: "Show session stats" },
-	{ name: "btw", description: "Ask a side question", inlineHint: "<question>", allowArgs: true },
-	{ name: "settings", description: "Open settings panel" },
-	{ name: "hotkeys", description: "Show keyboard shortcuts" },
+	{ name: "dump", description: t("slashCommands.descriptions.dump") },
+	{ name: "session", description: t("slashCommands.descriptions.session") },
+	{ name: "btw", description: t("slashCommands.descriptions.btw"), inlineHint: t("slashCommands.descriptions.btwHint"), allowArgs: true },
+	{ name: "settings", description: t("slashCommands.descriptions.settings") },
+	{ name: "hotkeys", description: t("slashCommands.descriptions.hotkeys") },
 ];
 
 const COMMAND_LOOKUP = new Map<string, WebSlashCommandDef>(WEB_SLASH_COMMANDS.map(cmd => [cmd.name, cmd]));
@@ -248,10 +251,6 @@ export function extractAtPrefix(text: string, cursorPos: number): { query: strin
 
 export interface SlashCommandExtras {
 	sendCommand: (cmd: RpcCommand) => void;
-	getMessages: () => Message[];
-	onOpenSettings?: () => void;
-	onShowHotkeys?: () => void;
-	onShowSessionStats?: () => void;
 }
 
 function getMessageText(msg: Message): string {
@@ -297,7 +296,8 @@ function extractBashBlocks(text: string): string[] {
  */
 export function executeSlashCommand(parsed: ParsedSlashCommand, extras: SlashCommandExtras): boolean {
 	const { name, args } = parsed;
-	const { sendCommand, getMessages, onOpenSettings, onShowHotkeys, onShowSessionStats } = extras;
+	const { sendCommand } = extras;
+	const { openSettings, openHotkeys, openSessionStats, openModelSelect } = useUIStore.getState();
 	switch (name.toLowerCase()) {
 		case "new":
 			sendCommand({ type: "new_session" });
@@ -307,7 +307,7 @@ export function executeSlashCommand(parsed: ParsedSlashCommand, extras: SlashCom
 			return true;
 		case "model":
 		case "models":
-			sendCommand({ type: "cycle_model" });
+			openModelSelect();
 			return true;
 		case "thinking": {
 			const level = args.trim();
@@ -348,7 +348,7 @@ export function executeSlashCommand(parsed: ParsedSlashCommand, extras: SlashCom
 		}
 		case "copy": {
 			const sub = args.trim().toLowerCase() || "last";
-			const messages = getMessages();
+			const messages = useSessionStore.getState().messages;
 			const lastAssistant = [...messages].reverse().find(m => m.role === "assistant");
 			if (!lastAssistant) return true;
 			const text = getMessageText(lastAssistant);
@@ -373,23 +373,23 @@ export function executeSlashCommand(parsed: ParsedSlashCommand, extras: SlashCom
 			return true;
 		}
 		case "dump": {
-			const messages = getMessages();
+			const messages = useSessionStore.getState().messages;
 			const text = messages.map(m => `## ${m.role}\n\n${getMessageText(m)}`).join("\n\n---\n\n");
 			navigator.clipboard.writeText(text).catch(() => {});
 			return true;
 		}
 		case "session":
-			onShowSessionStats?.();
+			openSessionStats();
 			return true;
 		case "btw":
 			if (!args.trim()) return false;
 			sendCommand({ type: "steer", message: args.trim() });
 			return true;
 		case "settings":
-			onOpenSettings?.();
+			openSettings();
 			return true;
 		case "hotkeys":
-			onShowHotkeys?.();
+			openHotkeys();
 			return true;
 		default:
 			return false;
