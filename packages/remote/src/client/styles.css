@@ -1,2 +1,5 @@
 @import "tailwindcss";
 @import "@heroui/styles/css";
+
+/* Use class-based dark mode so dark: prefix works with HeroUI's .dark class */
+@variant dark (&:where(.dark, .dark *));

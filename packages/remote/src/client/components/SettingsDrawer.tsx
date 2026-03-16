@@ -1,4 +1,14 @@
-import { Button, Drawer, type Key, ListBox, ListBoxItem, Select, Separator, Switch, useOverlayState } from "@heroui/react";
+import {
+	Button,
+	Drawer,
+	type Key,
+	ListBox,
+	ListBoxItem,
+	Select,
+	Separator,
+	Switch,
+	useOverlayState,
+} from "@heroui/react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSessionStore } from "../stores/sessionStore";
@@ -166,7 +176,7 @@ export function SettingsDrawer({ open, onClose, sendCommand }: SettingsDrawerPro
 										<div className="flex gap-2">
 											<input
 												type="text"
-												className="flex-1 rounded-lg border border-default-300 bg-content2 px-3 py-2 text-sm focus:outline-none focus:border-primary"
+												className="flex-1 rounded-lg border border-[var(--color-border)] bg-default px-3 py-2 text-sm focus:outline-none focus:border-[var(--color-accent)]"
 												placeholder={sessionState.sessionName ?? t("settings.sessionNamePlaceholder")}
 												value={sessionName}
 												onChange={e => setSessionName(e.target.value)}
@@ -174,12 +184,12 @@ export function SettingsDrawer({ open, onClose, sendCommand }: SettingsDrawerPro
 													if (e.key === "Enter") handleRenameSession();
 												}}
 											/>
-											<Button size="sm" variant="ghost" onPress={handleRenameSession}>
+											<Button size="sm" variant="outline" onPress={handleRenameSession}>
 												{t("settings.rename")}
 											</Button>
 										</div>
 										<div className="flex gap-2">
-											<Button size="sm" variant="ghost" onPress={() => sendCommand({ type: "compact" })}>
+											<Button size="sm" variant="outline" onPress={() => sendCommand({ type: "compact" })}>
 												{t("settings.compact")}
 											</Button>
 											<Button
@@ -196,7 +206,7 @@ export function SettingsDrawer({ open, onClose, sendCommand }: SettingsDrawerPro
 								<Separator />
 
 								{/* Info */}
-								<div className="text-xs text-default-400 space-y-1">
+								<div className="text-xs text-muted space-y-1">
 									<p>{t("settings.sessionId", { id: sessionState.sessionId })}</p>
 									<p>{t("settings.messages", { count: sessionState.messageCount })}</p>
 									{sessionState.queuedMessageCount > 0 && (

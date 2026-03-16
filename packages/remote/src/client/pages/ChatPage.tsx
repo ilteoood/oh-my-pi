@@ -1,4 +1,4 @@
-import { useBoolean } from 'usehooks-ts';
+import { useBoolean } from "usehooks-ts";
 import { Header } from "../components/Header";
 import { InputBar } from "../components/InputBar";
 import { MessageList } from "../components/MessageList";
@@ -11,7 +11,7 @@ interface ChatPageProps {
 }
 
 export function ChatPage({ sendCommand }: ChatPageProps) {
-	const {value: settingsOpen, setTrue: openSettings, setFalse: closeSettings} = useBoolean(false);
+	const { value: settingsOpen, setTrue: openSettings, setFalse: closeSettings } = useBoolean(false);
 
 	return (
 		<>

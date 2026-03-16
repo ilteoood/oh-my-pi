@@ -33,7 +33,7 @@ export function MessageList() {
 		<div ref={containerRef} onScroll={handleScroll} className="h-full overflow-y-auto px-4 py-4 space-y-4">
 			{messages.length === 0 && !isStreaming && (
 				<div className="flex items-center justify-center h-full">
-					<div className="text-center text-default-400">
+					<div className="text-center text-muted">
 						<p className="text-4xl mb-4">{t("messageList.emptySymbol")}</p>
 						<p className="text-lg">{t("messageList.emptyTitle")}</p>
 						<p className="text-sm mt-2">{t("messageList.emptySubtitle")}</p>

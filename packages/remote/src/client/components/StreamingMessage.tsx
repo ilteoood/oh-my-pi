@@ -13,20 +13,18 @@ interface StreamingMessageProps {
 export function StreamingMessage({ role, content }: StreamingMessageProps) {
 	const isUser = role === "user";
 
-	const contentLength = content.length
+	const contentLength = content.length;
 
 	return (
-		<div className={clsx('flex', isUser ? 'justify-end' : 'justify-start')}>
-			<Card className={clsx('max-w-[85%]', isUser ? 'bg-primary text-primary-foreground' : 'bg-content2')}>
+		<div className={clsx("flex", isUser ? "justify-end" : "justify-start")}>
+			<Card className={clsx("max-w-[85%]", isUser ? "bg-accent text-accent-foreground" : "bg-default")}>
 				<Card.Content className="px-4 py-3">
 					<div className="space-y-2">
 						{content.map((part, i) => (
 							// biome-ignore lint/suspicious/noArrayIndexKey: streaming parts lack stable IDs
 							<StreamingPart key={`${part.type}-${i}`} part={part} isLast={i === contentLength - 1} />
 						))}
-						{contentLength === 0 && (
-							<span className="inline-block w-2 h-5 bg-primary animate-pulse rounded-sm" />
-						)}
+						{contentLength === 0 && <span className="inline-block w-2 h-5 bg-accent animate-pulse rounded-sm" />}
 					</div>
 				</Card.Content>
 			</Card>
@@ -41,7 +39,7 @@ function StreamingPart({ part, isLast }: { part: ContentPart; isLast: boolean })
 				<div>
 					<MarkdownContent content={part.text} />
 					{isLast && (
-						<span className="inline-block w-2 h-5 bg-primary animate-pulse rounded-sm ml-0.5 align-text-bottom" />
+						<span className="inline-block w-2 h-5 bg-accent animate-pulse rounded-sm ml-0.5 align-text-bottom" />
 					)}
 				</div>
 			);

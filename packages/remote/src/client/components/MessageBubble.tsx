@@ -1,5 +1,5 @@
 import { Card } from "@heroui/react";
-import clsx from 'clsx';
+import clsx from "clsx";
 import type { ContentPart, ImageContentPart, Message, TextContentPart } from "../types";
 import { MarkdownContent } from "./MarkdownContent";
 import { ThinkingBlock } from "./ThinkingBlock";
@@ -13,8 +13,8 @@ export function MessageBubble({ message }: MessageBubbleProps) {
 	const isUser = message.role === "user";
 
 	return (
-		<div className={clsx('flex',  isUser ? 'justify-end' : 'justify-start')}>
-			<Card className={clsx('max-w-[85%]', isUser ? "bg-primary text-primary-foreground" : "bg-content2")}>
+		<div className={clsx("flex", isUser ? "justify-end" : "justify-start")}>
+			<Card className={clsx("max-w-[85%]", isUser ? "bg-accent text-accent-foreground" : "bg-default")}>
 				<Card.Content className="px-4 py-3">
 					<MessageContent content={message.content} isUser={isUser} />
 				</Card.Content>
@@ -63,14 +63,15 @@ function ContentPartRenderer({ part, isUser }: { part: ContentPart; isUser: bool
 	}
 }
 
-const contentSlicer = (content: string,_maxLengthh: number = 500) => content.length > 500 ? `${content.slice(0, 500)}...` : content
+const contentSlicer = (content: string, _maxLengthh: number = 500) =>
+	content.length > 500 ? `${content.slice(0, 500)}...` : content;
 
 function ToolResultDisplay({ content }: { content: (TextContentPart | ImageContentPart)[] | string }) {
 	if (!content) return null;
 	if (typeof content === "string") {
 		if (!content) return null;
 		return (
-			<div className="text-sm bg-content3 rounded-lg px-3 py-2 font-mono whitespace-pre-wrap overflow-x-auto">
+			<div className="text-sm bg-surface-secondary rounded-lg px-3 py-2 font-mono whitespace-pre-wrap overflow-x-auto">
 				{contentSlicer(content)}
 			</div>
 		);
@@ -82,7 +83,7 @@ function ToolResultDisplay({ content }: { content: (TextContentPart | ImageConte
 			.join("\n");
 		if (!text) return null;
 		return (
-			<div className="text-sm bg-content3 rounded-lg px-3 py-2 font-mono whitespace-pre-wrap overflow-x-auto">
+			<div className="text-sm bg-surface-secondary rounded-lg px-3 py-2 font-mono whitespace-pre-wrap overflow-x-auto">
 				{contentSlicer(text)}
 			</div>
 		);

@@ -11,14 +11,14 @@ interface HeaderProps {
 
 export function Header({ sendCommand, onOpenSettings }: HeaderProps) {
 	const { t } = useTranslation();
-	const {connected, sessionState, isStreaming, isCompacting} = useSessionStore();
+	const { connected, sessionState, isStreaming, isCompacting } = useSessionStore();
 
 	const modelName = sessionState?.model?.name ?? t("header.noModel");
 	const thinkingLevel = sessionState?.thinkingLevel ?? "off";
 	const sessionName = sessionState?.sessionName;
 
 	return (
-		<header className="flex items-center justify-between px-4 py-2 border-b border-divider bg-content1 shrink-0">
+		<header className="flex items-center justify-between px-4 py-2 border-b border-separator bg-surface shrink-0">
 			<div className="flex items-center gap-3">
 				<div className="flex items-center gap-2">
 					<div className={`w-2.5 h-2.5 rounded-full ${connected ? "bg-success" : "bg-danger"}`} />
@@ -59,9 +59,15 @@ export function Header({ sendCommand, onOpenSettings }: HeaderProps) {
 			</div>
 
 			<div className="flex items-center gap-2">
-				{sessionName && <span className="text-sm text-default-500">{sessionName}</span>}
-				<Button variant="ghost" size="sm" onPress={onOpenSettings} aria-label={t("header.settingsAriaLabel")}>
-					<IoSettings />
+				{sessionName && <span className="text-sm text-muted">{sessionName}</span>}
+				<Button
+					variant="ghost"
+					size="sm"
+					isIconOnly
+					onPress={onOpenSettings}
+					aria-label={t("header.settingsAriaLabel")}
+				>
+					<IoSettings size={16} />
 				</Button>
 			</div>
 		</header>

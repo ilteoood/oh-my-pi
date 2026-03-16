@@ -2,7 +2,7 @@ import { useSessionStore } from "../stores/sessionStore";
 import { ToolCallCard } from "./ToolCallCard";
 
 export function ToolExecutionList() {
-	const {toolExecutions} = useSessionStore();
+	const { toolExecutions } = useSessionStore();
 	const entries = Object.values(toolExecutions);
 
 	if (entries.length === 0) return null;
