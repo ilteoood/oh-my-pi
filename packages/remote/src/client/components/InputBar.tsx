@@ -12,18 +12,16 @@ import {
 	parseSlashCommand,
 } from "../slashCommands";
 import { useSessionStore } from "../stores/sessionStore";
+import { useUIStore } from "../stores/uiStore";
 import type { RpcCommand } from "../types";
 import { FileTagMenu } from "./FileTagMenu";
 import { SlashCommandMenu } from "./SlashCommandMenu";
 
 interface InputBarProps {
 	sendCommand: (cmd: RpcCommand) => void;
-	onOpenSettings: () => void;
-	onShowHotkeys: () => void;
-	onShowSessionStats: () => void;
 }
 
-export function InputBar({ sendCommand, onOpenSettings, onShowHotkeys, onShowSessionStats }: InputBarProps) {
+export function InputBar({ sendCommand }: InputBarProps) {
 	const [input, setInput] = useState("");
 	const [selectedIndex, setSelectedIndex] = useState(0);
 	// When true the dropdown stays hidden until the input or cursor changes again
@@ -36,6 +34,8 @@ export function InputBar({ sendCommand, onOpenSettings, onShowHotkeys, onShowSes
 	const { connected, isStreaming, fileSearch, clearFileSearch } = useSessionStore();
 
 	const { t } = useTranslation();
+
+	const { openSettings, openHotkeys, openSessionStats } = useUIStore();
 
 	// -------------------------------------------------------------------------
 	// @ file tagging — detect prefix and trigger debounced server search
@@ -182,9 +182,9 @@ export function InputBar({ sendCommand, onOpenSettings, onShowHotkeys, onShowSes
 				const executed = executeSlashCommand(parsed, {
 					sendCommand,
 					getMessages: () => useSessionStore.getState().messages,
-					onOpenSettings,
-					onShowHotkeys,
-					onShowSessionStats,
+					onOpenSettings: openSettings,
+					onShowHotkeys: openHotkeys,
+					onShowSessionStats: openSessionStats,
 				});
 				if (executed) setInput("");
 				return;
@@ -196,7 +196,7 @@ export function InputBar({ sendCommand, onOpenSettings, onShowHotkeys, onShowSes
 			message: trimmed,
 		});
 		setInput("");
-	}, [input, connected, isStreaming, sendCommand, onOpenSettings, onShowHotkeys, onShowSessionStats]);
+	}, [input, connected, isStreaming, sendCommand, openSettings, openHotkeys, openSessionStats]);
 
 	const handleKeyDown = useCallback(
 		(e: React.KeyboardEvent) => {

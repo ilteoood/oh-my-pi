@@ -2,16 +2,17 @@ import { Button, Chip, Tooltip } from "@heroui/react";
 import { useTranslation } from "react-i18next";
 import { IoSettings } from "react-icons/io5";
 import { useSessionStore } from "../stores/sessionStore";
+import { useUIStore } from "../stores/uiStore";
 import type { RpcCommand } from "../types";
 
 interface HeaderProps {
 	sendCommand: (cmd: RpcCommand) => void;
-	onOpenSettings: () => void;
 }
 
-export function Header({ sendCommand, onOpenSettings }: HeaderProps) {
+export function Header({ sendCommand }: HeaderProps) {
 	const { t } = useTranslation();
 	const { connected, sessionState, isStreaming, isCompacting } = useSessionStore();
+	const { openSettings } = useUIStore();
 
 	const modelName = sessionState?.model?.name ?? t("header.noModel");
 	const thinkingLevel = sessionState?.thinkingLevel ?? "off";
@@ -64,7 +65,7 @@ export function Header({ sendCommand, onOpenSettings }: HeaderProps) {
 					variant="ghost"
 					size="sm"
 					isIconOnly
-					onPress={onOpenSettings}
+					onPress={openSettings}
 					aria-label={t("header.settingsAriaLabel")}
 				>
 					<IoSettings size={16} />

@@ -12,25 +12,25 @@ import {
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSessionStore } from "../stores/sessionStore";
+import { useUIStore } from "../stores/uiStore";
 import type { RpcCommand, ThinkingLevel } from "../types";
 
 interface SettingsDrawerProps {
-	open: boolean;
-	onClose: () => void;
 	sendCommand: (cmd: RpcCommand) => void;
 }
 
 const THINKING_LEVELS: ThinkingLevel[] = ["off", "minimal", "low", "medium", "high", "xhigh"];
 
-export function SettingsDrawer({ open, onClose, sendCommand }: SettingsDrawerProps) {
+export function SettingsDrawer({ sendCommand }: SettingsDrawerProps) {
 	const { t } = useTranslation();
+	const { settingsOpen, closeSettings } = useUIStore();
 	const sessionState = useSessionStore(s => s.sessionState);
 	const [sessionName, setSessionName] = useState("");
 
 	const state = useOverlayState({
-		isOpen: open,
+		isOpen: settingsOpen,
 		onOpenChange: isOpen => {
-			if (!isOpen) onClose();
+			if (!isOpen) closeSettings();
 		},
 	});
 

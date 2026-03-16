@@ -2,16 +2,21 @@ import { useTranslation } from "react-i18next";
 import { IoClose } from "react-icons/io5";
 import { WEB_SLASH_COMMANDS } from "../slashCommands";
 import type { SessionStats } from "../types";
+import { useUIStore } from "../stores/uiStore";
+import { useSessionStore } from "../stores/sessionStore";
 
 interface InfoModalProps {
 	variant: "hotkeys" | "session";
-	open: boolean;
-	onClose: () => void;
-	sessionStats?: SessionStats | null;
 }
 
-export function InfoModal({ variant, open, onClose, sessionStats }: InfoModalProps) {
+export function InfoModal({ variant }: InfoModalProps) {
+	const { hotkeysOpen, closeHotkeys, sessionStatsOpen, closeSessionStats } = useUIStore();
 	const { t } = useTranslation();
+	const {sessionStats} = useSessionStore();
+	const isHotkeys = variant === "hotkeys";
+
+	const open = isHotkeys ? hotkeysOpen : sessionStatsOpen;
+	const onClose = isHotkeys ? closeHotkeys : closeSessionStats;
 
 	if (!open) return null;
 	return (
@@ -60,12 +65,12 @@ function HotkeysContent() {
 					<tbody className="divide-y divide-separator">
 						{(
 							[
-								["Enter", "Send message"],
-								["Shift+Enter", "Insert newline"],
-								["↑ / ↓", "Navigate suggestions"],
-								["Tab or Enter", "Confirm suggestion"],
-								["Escape", "Dismiss suggestions"],
-							] as [string, string][]
+							["Enter", t("hotkeys.keys.enter")],
+							["Shift+Enter", t("hotkeys.keys.shiftEnter")],
+							["↑ / ↓", t("hotkeys.keys.arrowUpDown")],
+							["Tab or Enter", t("hotkeys.keys.tabOrEnter")],
+							["Escape", t("hotkeys.keys.escape")],
+						] as [string, string][]
 						).map(([key, desc]) => (
 							<tr key={key}>
 								<td className="py-1.5 pr-4 font-mono text-xs text-muted whitespace-nowrap">{key}</td>
@@ -85,7 +90,7 @@ function HotkeysContent() {
 									/{cmd.name}
 									{cmd.inlineHint ? ` ${cmd.inlineHint}` : ""}
 								</td>
-								<td className="py-1.5 text-foreground">{cmd.description}</td>
+							<td className="py-1.5 text-foreground">{t(`slashCommands.descriptions.${cmd.name}`)}</td>
 							</tr>
 						))}
 					</tbody>

@@ -76,7 +76,21 @@
 		"label": "Thinking"
 	},
 	"slashCommands": {
-		"ariaLabel": "Slash commands"
+		"ariaLabel": "Slash commands",
+		"descriptions": {
+			"new": "Start a new session",
+			"compact": "Compact session context",
+			"model": "Cycle to next model",
+			"thinking": "Set thinking level",
+			"plan": "Toggle plan mode",
+			"fast": "Toggle fast/priority mode",
+			"copy": "Copy to clipboard",
+			"dump": "Copy full transcript to clipboard",
+			"session": "Show session stats",
+			"btw": "Ask a side question",
+			"settings": "Open settings panel",
+			"hotkeys": "Show keyboard shortcuts"
+		}
 	},
 	"fileTag": {
 		"ariaLabel": "File suggestions",
@@ -87,7 +101,14 @@
 		"inputSection": "Input",
 		"slashSection": "Slash Commands",
 		"fileTagSection": "File Tagging",
-		"fileTagHint": "Type @query to fuzzy-search and attach file paths"
+		"fileTagHint": "Type @query to fuzzy-search and attach file paths",
+		"keys": {
+			"enter": "Send message",
+			"shiftEnter": "Insert newline",
+			"arrowUpDown": "Navigate suggestions",
+			"tabOrEnter": "Confirm suggestion",
+			"escape": "Dismiss suggestions"
+		}
 	},
 	"sessionStats": {
 		"title": "Session Stats",
