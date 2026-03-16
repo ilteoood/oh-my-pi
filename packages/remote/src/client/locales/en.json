@@ -15,7 +15,7 @@
 		"sendAriaLabel": "Send"
 	},
 	"messageList": {
-		"emptySymbol": "pi",
+		"emptySymbol": "π",
 		"emptyTitle": "oh-my-pi Remote",
 		"emptySubtitle": "Type a message to start"
 	},

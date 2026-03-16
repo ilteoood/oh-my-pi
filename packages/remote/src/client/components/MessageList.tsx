@@ -34,7 +34,7 @@ export function MessageList() {
 			{messages.length === 0 && !isStreaming && (
 				<div className="flex items-center justify-center h-full">
 					<div className="text-center text-muted">
-						<p className="text-4xl mb-4">{t("messageList.emptySymbol")}</p>
+						<p className="text-9xl mb-4">{t("messageList.emptySymbol")}</p>
 						<p className="text-lg">{t("messageList.emptyTitle")}</p>
 						<p className="text-sm mt-2">{t("messageList.emptySubtitle")}</p>
 					</div>
