@@ -4,6 +4,7 @@ import type { ContentPart, ImageContentPart, Message, TextContentPart } from "..
 import { MarkdownContent } from "./MarkdownContent";
 import { ThinkingBlock } from "./ThinkingBlock";
 import { ToolCallCard } from "./ToolCallCard";
+import { ImageRenderer } from "./ImageRenderer";
 
 interface MessageBubbleProps {
 	message: Message;
@@ -55,7 +56,7 @@ function ContentPartRenderer({ part, isUser }: { part: ContentPart; isUser: bool
 		case "toolResult":
 			return <ToolResultDisplay content={part.content} />;
 		case "image":
-			return <img src={part.data} alt={part.mimeType} className="max-w-full rounded" />;
+			return <ImageRenderer part={part} />;
 		case "redactedThinking":
 			return null;
 		default:

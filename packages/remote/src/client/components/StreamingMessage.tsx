@@ -1,6 +1,7 @@
 import { Card } from "@heroui/react";
 import clsx from "clsx";
 import type { ContentPart, MessageRole } from "../types";
+import { ImageRenderer } from "./ImageRenderer";
 import { MarkdownContent } from "./MarkdownContent";
 import { ThinkingBlock } from "./ThinkingBlock";
 import { ToolCallCard } from "./ToolCallCard";
@@ -48,7 +49,7 @@ function StreamingPart({ part, isLast }: { part: ContentPart; isLast: boolean })
 		case "toolCall":
 			return <ToolCallCard name={part.name} args={part.arguments} id={part.id} />;
 		case "image":
-			return <img src={part.data} alt={part.mimeType} className="max-w-full rounded" />;
+			return <ImageRenderer part={part} />;
 		case "redactedThinking":
 			return null;
 		default:
