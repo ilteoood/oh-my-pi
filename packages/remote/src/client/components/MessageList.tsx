@@ -6,10 +6,7 @@ import { StreamingMessage } from "./StreamingMessage";
 
 export function MessageList() {
 	const { t } = useTranslation();
-	const messages = useSessionStore(s => s.messages);
-	const streamingContent = useSessionStore(s => s.streamingContent);
-	const streamingRole = useSessionStore(s => s.streamingRole);
-	const isStreaming = useSessionStore(s => s.isStreaming);
+	const {messages, streamingContent, streamingRole, isStreaming} = useSessionStore();
 	const containerRef = useRef<HTMLDivElement>(null);
 	const shouldAutoScroll = useRef(true);
 
