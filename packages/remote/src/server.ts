@@ -5,7 +5,7 @@ import type { AgentSession } from "@oh-my-pi/pi-coding-agent/session/agent-sessi
 import { logger } from "@oh-my-pi/pi-utils";
 import { $ } from "bun";
 import { Hono } from "hono";
-import { upgradeWebSocket, websocket } from "hono/bun";
+import { serveStatic, upgradeWebSocket, websocket } from "hono/bun";
 import type { WSContext } from "hono/ws";
 import { getSessionState, handleCommand } from "./command-handler";
 
@@ -75,28 +75,6 @@ async function ensureClientBuild(): Promise<void> {
 	}
 }
 
-async function handleStatic(requestPath: string): Promise<Response> {
-	const filePath = requestPath === "/" ? "/index.html" : requestPath;
-	const resolved = path.resolve(STATIC_DIR, `.${filePath}`);
-
-	if (!resolved.startsWith(STATIC_DIR + path.sep) && resolved !== STATIC_DIR) {
-		return new Response("Forbidden", { status: 403 });
-	}
-
-	const file = Bun.file(resolved);
-	if (await file.exists()) {
-		return new Response(file);
-	}
-
-	// SPA fallback
-	const index = Bun.file(path.join(STATIC_DIR, "index.html"));
-	if (await index.exists()) {
-		return new Response(index);
-	}
-
-	return new Response("Not Found", { status: 404 });
-}
-
 function send(ws: WSContext, data: object): void {
 	try {
 		ws.send(JSON.stringify(data));
@@ -162,11 +140,9 @@ export async function startRemoteServer(
 		})),
 	);
 
-	// Static file serving (all non-WS routes)
-	app.get("*", async c => {
-		const response = await handleStatic(new URL(c.req.url).pathname);
-		return response;
-	});
+	// Static file serving — direct match first, then SPA fallback to index.html
+	app.use("*", serveStatic({ root: STATIC_DIR }));
+	app.use("*", serveStatic({ root: STATIC_DIR, path: "/index.html" }));
 
 	// Subscribe to session events and broadcast to all connected clients
 	const unsubscribe = session.subscribe(event => {
