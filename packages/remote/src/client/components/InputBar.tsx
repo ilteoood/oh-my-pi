@@ -44,7 +44,7 @@ export function InputBar({ sendCommand }: InputBarProps) {
 
 	return (
 		<div className="border-t border-divider px-4 py-3 bg-content1 shrink-0">
-			<div className="flex items-end gap-2 max-w-5xl mx-auto">
+			<div className="flex items-center gap-2 max-w-5xl mx-auto">
 				<textarea
 					ref={textareaRef}
 					value={input}
@@ -55,7 +55,7 @@ export function InputBar({ sendCommand }: InputBarProps) {
 					}
 					disabled={!connected}
 					rows={1}
-					className="flex-1 resize-none rounded-xl border border-default-300 bg-content2 px-4 py-3 text-sm focus:outline-none focus:border-primary transition-colors disabled:opacity-50 max-h-[200] field-sizing-content"
+					className="flex-1 resize-none rounded-xl border border-default-300 bg-content2 px-4 py-3 text-sm focus:outline-none focus:border-primary transition-colors disabled:opacity-50 max-h-[200px] field-sizing-content"
 				/>
 				<div className="flex gap-1">
 					{isStreaming && (
