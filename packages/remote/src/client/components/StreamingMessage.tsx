@@ -18,7 +18,7 @@ export function StreamingMessage({ role, content }: StreamingMessageProps) {
 	return (
 		<div className={clsx("flex", isUser ? "justify-end" : "justify-start")}>
 			<Card className={clsx("max-w-[85%]", isUser ? "bg-accent text-accent-foreground" : "bg-default")}>
-				<Card.Content className="px-4 py-3">
+				<Card.Content>
 					<div className="space-y-2">
 						{content.map((part, i) => (
 							// biome-ignore lint/suspicious/noArrayIndexKey: streaming parts lack stable IDs

@@ -15,7 +15,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
 	return (
 		<div className={clsx("flex", isUser ? "justify-end" : "justify-start")}>
 			<Card className={clsx("max-w-[85%]", isUser ? "bg-accent text-accent-foreground" : "bg-default")}>
-				<Card.Content className="px-4 py-3">
+				<Card.Content>
 					<MessageContent content={message.content} isUser={isUser} />
 				</Card.Content>
 			</Card>
