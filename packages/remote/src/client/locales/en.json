@@ -1,0 +1,78 @@
+{
+	"header": {
+		"brand": "oh-my-pi",
+		"noModel": "No model",
+		"cycleModelTooltip": "Click to cycle model",
+		"thinking": "thinking: {{level}}",
+		"streaming": "Streaming",
+		"compacting": "Compacting",
+		"settingsAriaLabel": "Settings"
+	},
+	"inputBar": {
+		"placeholder": "Type a message... (Enter to send, Shift+Enter for newline)",
+		"disconnectedPlaceholder": "Disconnected...",
+		"stopAriaLabel": "Stop",
+		"sendAriaLabel": "Send"
+	},
+	"messageList": {
+		"emptySymbol": "pi",
+		"emptyTitle": "oh-my-pi Remote",
+		"emptySubtitle": "Type a message to start"
+	},
+	"settings": {
+		"title": "Settings",
+		"thinkingLevel": "Thinking Level",
+		"steeringMode": "Steering Mode",
+		"followUpMode": "Follow-up Mode",
+		"interruptMode": "Interrupt Mode",
+		"session": "Session",
+		"allAtOnce": "All at once",
+		"oneAtATime": "One at a time",
+		"immediate": "Immediate",
+		"waitForTurnEnd": "Wait for turn end",
+		"autoCompaction": "Auto Compaction",
+		"rename": "Rename",
+		"compact": "Compact",
+		"newSession": "New Session",
+		"sessionNamePlaceholder": "Session name...",
+		"sessionId": "Session ID: {{id}}",
+		"messages": "Messages: {{count}}",
+		"queued": "Queued: {{count}}"
+	},
+	"status": {
+		"compacting": "Compacting context...",
+		"retrying": "Retrying ({{attempt}}/{{maxAttempts}})..."
+	},
+	"tool": {
+		"status": {
+			"done": "Done",
+			"error": "Error"
+		},
+		"arguments": "Arguments",
+		"result": "Result",
+		"names": {
+			"read": "Read File",
+			"write": "Write File",
+			"edit": "Edit File",
+			"bash": "Terminal",
+			"python": "Python",
+			"grep": "Search",
+			"find": "Find Files",
+			"lsp": "LSP",
+			"ask": "Ask User",
+			"task": "Subagent Task",
+			"todo_write": "Todo",
+			"fetch": "Fetch URL",
+			"web_search": "Web Search",
+			"ast_grep": "AST Search",
+			"ast_edit": "AST Edit",
+			"notebook": "Notebook",
+			"resolve": "Resolve",
+			"ssh": "SSH",
+			"inspect_image": "Inspect Image"
+		}
+	},
+	"thinking": {
+		"label": "Thinking"
+	}
+}

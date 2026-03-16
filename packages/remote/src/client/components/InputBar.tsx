@@ -1,7 +1,7 @@
 import { Button } from "@heroui/react";
 import { useCallback, useRef, useState } from "react";
-import { SendIcon } from "../icons/SendIcon";
-import { StopIcon } from "../icons/StopIcon";
+import { useTranslation } from "react-i18next";
+import { IoSend, IoStop } from "react-icons/io5";
 import { useSessionStore } from "../stores/sessionStore";
 import type { RpcCommand } from "../types";
 
@@ -14,6 +14,7 @@ export function InputBar({ sendCommand }: InputBarProps) {
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const connected = useSessionStore(s => s.connected);
 	const isStreaming = useSessionStore(s => s.isStreaming);
+	const { t } = useTranslation();
 
 	const handleSend = useCallback(() => {
 		const trimmed = input.trim();
@@ -50,7 +51,7 @@ export function InputBar({ sendCommand }: InputBarProps) {
 					onChange={e => setInput(e.target.value)}
 					onKeyDown={handleKeyDown}
 					placeholder={
-						connected ? "Type a message... (Enter to send, Shift+Enter for newline)" : "Disconnected..."
+						connected ? t("inputBar.placeholder") : t("inputBar.disconnectedPlaceholder")
 					}
 					disabled={!connected}
 					rows={1}
@@ -58,8 +59,8 @@ export function InputBar({ sendCommand }: InputBarProps) {
 				/>
 				<div className="flex gap-1">
 					{isStreaming && (
-						<Button variant="danger" size="md" onPress={handleAbort} isIconOnly aria-label="Stop">
-							<StopIcon />
+						<Button variant="danger" size="md" onPress={handleAbort} isIconOnly aria-label={t("inputBar.stopAriaLabel")}>
+							<IoStop />
 						</Button>
 					)}
 					<Button
@@ -68,9 +69,9 @@ export function InputBar({ sendCommand }: InputBarProps) {
 						onPress={handleSend}
 						isDisabled={!connected || !input.trim()}
 						isIconOnly
-						aria-label="Send"
+						aria-label={t("inputBar.sendAriaLabel")}
 					>
-						<SendIcon />
+						<IoSend />
 					</Button>
 				</div>
 			</div>
