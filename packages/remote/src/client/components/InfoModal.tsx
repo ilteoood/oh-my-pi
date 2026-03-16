@@ -1,9 +1,9 @@
 import { useTranslation } from "react-i18next";
 import { IoClose } from "react-icons/io5";
 import { WEB_SLASH_COMMANDS } from "../slashCommands";
-import type { SessionStats } from "../types";
-import { useUIStore } from "../stores/uiStore";
 import { useSessionStore } from "../stores/sessionStore";
+import { useUIStore } from "../stores/uiStore";
+import type { SessionStats } from "../types";
 
 interface InfoModalProps {
 	variant: "hotkeys" | "session";
@@ -55,6 +55,14 @@ export function InfoModal({ variant }: InfoModalProps) {
 	);
 }
 
+const HOTKEYS = [
+	["Enter", "hotkeys.keys.enter"],
+	["Shift+Enter", "hotkeys.keys.shiftEnter"],
+	["↑ / ↓", "hotkeys.keys.arrowUpDown"],
+	["Tab or Enter", "hotkeys.keys.tabOrEnter"],
+	["Escape", "hotkeys.keys.escape"],
+]
+
 function HotkeysContent() {
 	const { t } = useTranslation();
 	return (
@@ -63,18 +71,10 @@ function HotkeysContent() {
 				<p className="font-medium text-xs uppercase tracking-wider text-muted mb-2">{t("hotkeys.inputSection")}</p>
 				<table className="w-full">
 					<tbody className="divide-y divide-separator">
-						{(
-							[
-							["Enter", t("hotkeys.keys.enter")],
-							["Shift+Enter", t("hotkeys.keys.shiftEnter")],
-							["↑ / ↓", t("hotkeys.keys.arrowUpDown")],
-							["Tab or Enter", t("hotkeys.keys.tabOrEnter")],
-							["Escape", t("hotkeys.keys.escape")],
-						] as [string, string][]
-						).map(([key, desc]) => (
+						{HOTKEYS.map(([key, desc]) => (
 							<tr key={key}>
 								<td className="py-1.5 pr-4 font-mono text-xs text-muted whitespace-nowrap">{key}</td>
-								<td className="py-1.5 text-foreground">{desc}</td>
+								<td className="py-1.5 text-foreground">{t(desc)}</td>
 							</tr>
 						))}
 					</tbody>
