@@ -69,8 +69,8 @@
   },
   "files": [
     "src",
-    "dist",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md"
   ],
   "exports": {
     ".": {
