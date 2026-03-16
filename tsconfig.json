@@ -4,5 +4,5 @@
 		"noEmit": true
 	},
 	"include": ["packages/*/src/**/*", "packages/*/test/**/*"],
-	"exclude": ["packages/coding-agent/examples/**/*", "packages/stats/src/client/**/*", "packages/remote/src/client/**/*", "packages/web-ui/**/*", "**/dist/**"]
+	"exclude": ["packages/coding-agent/examples/**/*", "packages/stats/src/client/**/*", "packages/remote/**/*", "packages/web-ui/**/*", "**/dist/**"]
 }
