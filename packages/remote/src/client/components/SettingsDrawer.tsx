@@ -1,4 +1,4 @@
-import { Button, Drawer, type Key, ListBoxItem, Select, Separator, Switch, useOverlayState } from "@heroui/react";
+import { Button, Drawer, type Key, ListBox, ListBoxItem, Select, Separator, Switch, useOverlayState } from "@heroui/react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSessionStore } from "../stores/sessionStore";
@@ -59,11 +59,13 @@ export function SettingsDrawer({ open, onClose, sendCommand }: SettingsDrawerPro
 											<Select.Indicator />
 										</Select.Trigger>
 										<Select.Popover>
-											{THINKING_LEVELS.map(level => (
-												<ListBoxItem key={level} id={level}>
-													{level}
-												</ListBoxItem>
-											))}
+											<ListBox>
+												{THINKING_LEVELS.map(level => (
+													<ListBoxItem key={level} id={level}>
+														{level}
+													</ListBoxItem>
+												))}
+											</ListBox>
 										</Select.Popover>
 									</Select>
 								</div>
@@ -101,8 +103,10 @@ export function SettingsDrawer({ open, onClose, sendCommand }: SettingsDrawerPro
 											<Select.Indicator />
 										</Select.Trigger>
 										<Select.Popover>
-											<ListBoxItem id="all">{t("settings.allAtOnce")}</ListBoxItem>
-											<ListBoxItem id="one-at-a-time">{t("settings.oneAtATime")}</ListBoxItem>
+											<ListBox>
+												<ListBoxItem id="all">{t("settings.allAtOnce")}</ListBoxItem>
+												<ListBoxItem id="one-at-a-time">{t("settings.oneAtATime")}</ListBoxItem>
+											</ListBox>
 										</Select.Popover>
 									</Select>
 								</div>
@@ -122,8 +126,10 @@ export function SettingsDrawer({ open, onClose, sendCommand }: SettingsDrawerPro
 											<Select.Indicator />
 										</Select.Trigger>
 										<Select.Popover>
-											<ListBoxItem id="all">{t("settings.allAtOnce")}</ListBoxItem>
-											<ListBoxItem id="one-at-a-time">{t("settings.oneAtATime")}</ListBoxItem>
+											<ListBox>
+												<ListBoxItem id="all">{t("settings.allAtOnce")}</ListBoxItem>
+												<ListBoxItem id="one-at-a-time">{t("settings.oneAtATime")}</ListBoxItem>
+											</ListBox>
 										</Select.Popover>
 									</Select>
 								</div>
@@ -143,8 +149,10 @@ export function SettingsDrawer({ open, onClose, sendCommand }: SettingsDrawerPro
 											<Select.Indicator />
 										</Select.Trigger>
 										<Select.Popover>
-											<ListBoxItem id="immediate">{t("settings.immediate")}</ListBoxItem>
-											<ListBoxItem id="wait">{t("settings.waitForTurnEnd")}</ListBoxItem>
+											<ListBox>
+												<ListBoxItem id="immediate">{t("settings.immediate")}</ListBoxItem>
+												<ListBoxItem id="wait">{t("settings.waitForTurnEnd")}</ListBoxItem>
+											</ListBox>
 										</Select.Popover>
 									</Select>
 								</div>
