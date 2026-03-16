@@ -25,6 +25,8 @@ export interface SessionState {
 	autoCompactionEnabled: boolean;
 	messageCount: number;
 	queuedMessageCount: number;
+	planModeEnabled: boolean;
+	fastModeEnabled: boolean;
 }
 
 // --- Message types ---
@@ -181,4 +183,34 @@ export type RpcCommand =
 	| { id?: string; type: "abort_retry" }
 	| { id?: string; type: "set_session_name"; name: string }
 	| { id?: string; type: "get_messages" }
-	| { id?: string; type: "get_session_stats" };
+	| { id?: string; type: "get_session_stats" }
+	| { id?: string; type: "search_files"; query: string }
+	| { id?: string; type: "toggle_fast_mode" }
+	| { id?: string; type: "set_fast_mode"; enabled: boolean }
+	| { id?: string; type: "set_plan_mode"; enabled: boolean; prompt?: string }
+	| { id?: string; type: "get_last_assistant_text" };
+
+export interface FuzzyFindMatch {
+	path: string;
+	isDirectory: boolean;
+	score: number;
+}
+
+export interface SessionStats {
+	sessionFile: string | undefined;
+	sessionId: string;
+	userMessages: number;
+	assistantMessages: number;
+	toolCalls: number;
+	toolResults: number;
+	totalMessages: number;
+	tokens: {
+		input: number;
+		output: number;
+		cacheRead: number;
+		cacheWrite: number;
+		total: number;
+	};
+	premiumRequests: number;
+	cost: number;
+}

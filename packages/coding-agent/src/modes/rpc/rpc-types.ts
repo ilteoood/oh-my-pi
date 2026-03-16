@@ -60,6 +60,10 @@ export type RpcCommand =
 	| { id?: string; type: "get_branch_messages" }
 	| { id?: string; type: "get_last_assistant_text" }
 	| { id?: string; type: "set_session_name"; name: string }
+	| { id?: string; type: "search_files"; query: string }
+	| { id?: string; type: "toggle_fast_mode" }
+	| { id?: string; type: "set_fast_mode"; enabled: boolean }
+	| { id?: string; type: "set_plan_mode"; enabled: boolean; prompt?: string }
 
 	// Messages
 	| { id?: string; type: "get_messages" };
@@ -82,6 +86,8 @@ export interface RpcSessionState {
 	autoCompactionEnabled: boolean;
 	messageCount: number;
 	queuedMessageCount: number;
+	planModeEnabled: boolean;
+	fastModeEnabled: boolean;
 }
 
 // ============================================================================
@@ -171,6 +177,16 @@ export type RpcResponse =
 			data: { text: string | null };
 	  }
 	| { id?: string; type: "response"; command: "set_session_name"; success: true }
+	| {
+			id?: string;
+			type: "response";
+			command: "search_files";
+			success: true;
+			data: { query: string; files: Array<{ path: string; isDirectory: boolean; score: number }> };
+	  }
+	| { id?: string; type: "response"; command: "toggle_fast_mode"; success: true; data: { enabled: boolean } }
+	| { id?: string; type: "response"; command: "set_fast_mode"; success: true; data: { enabled: boolean } }
+	| { id?: string; type: "response"; command: "set_plan_mode"; success: true; data: { enabled: boolean } }
 
 	// Messages
 	| { id?: string; type: "response"; command: "get_messages"; success: true; data: { messages: AgentMessage[] } }

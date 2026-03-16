@@ -74,5 +74,34 @@
 	},
 	"thinking": {
 		"label": "Thinking"
+	},
+	"slashCommands": {
+		"ariaLabel": "Slash commands"
+	},
+	"fileTag": {
+		"ariaLabel": "File suggestions",
+		"noResults": "No files found"
+	},
+	"hotkeys": {
+		"title": "Keyboard Shortcuts",
+		"inputSection": "Input",
+		"slashSection": "Slash Commands",
+		"fileTagSection": "File Tagging",
+		"fileTagHint": "Type @query to fuzzy-search and attach file paths"
+	},
+	"sessionStats": {
+		"title": "Session Stats",
+		"messages": "Messages",
+		"user": "User",
+		"assistant": "Assistant",
+		"toolCalls": "Tool calls",
+		"tokens": "Tokens",
+		"input": "Input",
+		"output": "Output",
+		"cacheRead": "Cache read",
+		"cacheWrite": "Cache write",
+		"total": "Total",
+		"cost": "Cost",
+		"loading": "Loading..."
 	}
 }

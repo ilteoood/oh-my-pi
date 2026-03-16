@@ -1,5 +1,14 @@
 import { create } from "zustand";
-import type { ContentPart, Message, MessageRole, ModelInfo, SessionState, ToolExecution } from "../types";
+import type {
+	ContentPart,
+	FuzzyFindMatch,
+	Message,
+	MessageRole,
+	ModelInfo,
+	SessionState,
+	SessionStats,
+	ToolExecution,
+} from "../types";
 
 interface RetryInfo {
 	attempt: number;
@@ -22,6 +31,8 @@ interface SessionStore {
 	retryInfo: RetryInfo | null;
 	error: string | null;
 	availableModels: ModelInfo[];
+	sessionStats: SessionStats | null;
+	fileSearch: { query: string; matches: FuzzyFindMatch[] } | null;
 
 	// --- Actions ---
 	setConnected: (connected: boolean) => void;
@@ -41,6 +52,9 @@ interface SessionStore {
 	retryEnd: () => void;
 	setError: (error: string | null) => void;
 	setAvailableModels: (models: ModelInfo[]) => void;
+	setSessionStats: (stats: SessionStats | null) => void;
+	setFileSearch: (query: string, matches: FuzzyFindMatch[]) => void;
+	clearFileSearch: () => void;
 	clearMessages: () => void;
 }
 
@@ -58,6 +72,8 @@ export const useSessionStore = create<SessionStore>(set => ({
 	retryInfo: null,
 	error: null,
 	availableModels: [],
+	sessionStats: null,
+	fileSearch: null,
 
 	// --- Actions ---
 
@@ -150,6 +166,9 @@ export const useSessionStore = create<SessionStore>(set => ({
 	setError: error => set({ error }),
 
 	setAvailableModels: availableModels => set({ availableModels }),
+	setSessionStats: stats => set({ sessionStats: stats }),
+	setFileSearch: (query, matches) => set({ fileSearch: { query, matches } }),
+	clearFileSearch: () => set({ fileSearch: null }),
 
 	clearMessages: () =>
 		set({

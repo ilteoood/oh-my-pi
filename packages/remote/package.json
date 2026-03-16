@@ -32,6 +32,7 @@
 		"@heroui/styles": "3.0.0-rc.1",
 		"@oh-my-pi/pi-agent-core": "workspace:*",
 		"@oh-my-pi/pi-coding-agent": "workspace:*",
+		"@oh-my-pi/pi-natives": "workspace:*",
 		"@oh-my-pi/pi-utils": "workspace:*",
 		"@tailwindcss/vite": "4.2.1",
 		"@vitejs/plugin-react": "6.0.1",

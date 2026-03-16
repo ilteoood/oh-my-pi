@@ -1,6 +1,25 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useSessionStore } from "../stores/sessionStore";
-import type { ContentPart, Message, MessageRole, ModelInfo, RpcCommand, SessionState } from "../types";
+import type {
+	ContentPart,
+	FuzzyFindMatch,
+	Message,
+	MessageRole,
+	ModelInfo,
+	RpcCommand,
+	SessionState,
+	SessionStats,
+} from "../types";
+
+const NEEDS_STATE_REFETCH_EVENTS = new Set<string | undefined>([
+	"cycle_model",
+	"cycle_thinking_level",
+	"set_model",
+	"set_thinking_level",
+	"set_plan_mode",
+	"toggle_fast_mode",
+	"set_fast_mode",
+])
 
 export function useWebSocket(): { sendCommand: (cmd: RpcCommand) => void } {
 	const wsRef = useRef<WebSocket | null>(null);
@@ -143,13 +162,7 @@ export function useWebSocket(): { sendCommand: (cmd: RpcCommand) => void } {
 					if (resp.command === "get_state" && resp.success && resp.data) {
 						s.setSessionState(resp.data as SessionState);
 					}
-					if (
-						resp.success &&
-						(resp.command === "cycle_model" ||
-							resp.command === "cycle_thinking_level" ||
-							resp.command === "set_model" ||
-							resp.command === "set_thinking_level")
-					) {
+					if (resp.success && NEEDS_STATE_REFETCH_EVENTS.has(resp.command)) {
 						const ws = wsRef.current;
 						if (ws?.readyState === WebSocket.OPEN) {
 							ws.send(JSON.stringify({ type: "get_state" }));
@@ -157,6 +170,13 @@ export function useWebSocket(): { sendCommand: (cmd: RpcCommand) => void } {
 					}
 					if (!resp.success && resp.error) {
 						s.setError(resp.error);
+					}
+					if (resp.command === "get_session_stats" && resp.success && resp.data) {
+						s.setSessionStats(resp.data as SessionStats);
+					}
+					if (resp.command === "search_files" && resp.success && resp.data) {
+						const data = resp.data as { query: string; files: FuzzyFindMatch[] };
+						s.setFileSearch(data.query, data.files);
 					}
 					break;
 				}

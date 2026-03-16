@@ -490,6 +490,8 @@ export async function runRpcMode(session: AgentSession): Promise<never> {
 					autoCompactionEnabled: session.autoCompactionEnabled,
 					messageCount: session.messages.length,
 					queuedMessageCount: session.queuedMessageCount,
+					planModeEnabled: session.getPlanModeState()?.enabled ?? false,
+					fastModeEnabled: session.isFastModeEnabled(),
 				};
 				return success(id, "get_state", state);
 			}

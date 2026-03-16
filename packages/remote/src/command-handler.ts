@@ -1,6 +1,9 @@
+import * as os from "node:os";
+import * as path from "node:path";
 import type { RpcCommand, RpcResponse, RpcSessionState } from "@oh-my-pi/pi-coding-agent/modes/rpc/rpc-types";
 import type { AgentSession } from "@oh-my-pi/pi-coding-agent/session/agent-session";
-import { logger } from "@oh-my-pi/pi-utils";
+import { fuzzyFind } from "@oh-my-pi/pi-natives";
+import { getProjectDir, logger } from "@oh-my-pi/pi-utils";
 
 function success<T extends RpcCommand["type"]>(id: string | undefined, command: T, data?: object | null): RpcResponse {
 	return { id, type: "response", command, success: true, data } as RpcResponse;
@@ -25,6 +28,8 @@ export function getSessionState(session: AgentSession): RpcSessionState {
 		autoCompactionEnabled: session.autoCompactionEnabled,
 		messageCount: session.messages.length,
 		queuedMessageCount: session.queuedMessageCount,
+		planModeEnabled: session.getPlanModeState()?.enabled ?? false,
+		fastModeEnabled: session.isFastModeEnabled(),
 	};
 }
 
@@ -198,6 +203,61 @@ export async function handleCommand(session: AgentSession, command: RpcCommand):
 
 		case "get_messages": {
 			return success(id, "get_messages", { messages: session.messages });
+		}
+
+		case "search_files": {
+			const basePath = getProjectDir();
+			try {
+				const result = await fuzzyFind({
+					query: command.query,
+					path: basePath,
+					maxResults: 20,
+					hidden: false,
+					gitignore: true,
+					cache: true,
+				});
+				return success(id, "search_files", {
+					query: command.query,
+					files: result.matches.map(m => ({ path: m.path, isDirectory: m.isDirectory, score: m.score })),
+				});
+			} catch (e) {
+				return error(id, "search_files", e instanceof Error ? e.message : String(e));
+			}
+		}
+
+		case "toggle_fast_mode": {
+			const enabled = session.toggleFastMode();
+			return success(id, "toggle_fast_mode", { enabled });
+		}
+
+		case "set_fast_mode": {
+			session.setFastMode(command.enabled);
+			return success(id, "set_fast_mode", { enabled: command.enabled });
+		}
+
+		case "set_plan_mode": {
+			if (!command.enabled) {
+				session.setPlanModeState(undefined);
+				return success(id, "set_plan_mode", { enabled: false });
+			}
+			const planFilePath = path.join(os.tmpdir(), `plan-${session.sessionId}.md`);
+			session.setPlanModeState({ enabled: true, planFilePath });
+			if (command.prompt) {
+				session
+					.prompt(command.prompt)
+					.catch(e => logger.error("plan prompt error", { detail: e instanceof Error ? e.message : String(e) }));
+			}
+			return success(id, "set_plan_mode", { enabled: true });
+		}
+
+		case "get_last_assistant_text": {
+			const lastMsg = session.getLastAssistantMessage();
+			if (!lastMsg) return success(id, "get_last_assistant_text", { text: null });
+			const text = lastMsg.content
+				.filter(c => c.type === "text")
+				.map(c => (c as { type: "text"; text: string }).text)
+				.join("\n");
+			return success(id, "get_last_assistant_text", { text: text || null });
 		}
 
 		default: {
