@@ -16,7 +16,7 @@
 	},
 	"messageList": {
 		"emptySymbol": "π",
-		"emptyTitle": "oh-my-pi Remote",
+		"emptyTitle": "oh-my-pi remote",
 		"emptySubtitle": "Type a message to start"
 	},
 	"settings": {
