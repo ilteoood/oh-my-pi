@@ -121,7 +121,15 @@ export const WEB_SLASH_COMMANDS: ReadonlyArray<WebSlashCommandDef> = [
 		],
 	},
 	{ name: "dump", description: t("slashCommands.descriptions.dump") },
-	{ name: "session", description: t("slashCommands.descriptions.session") },
+	{
+		name: "session",
+		description: t("slashCommands.descriptions.session"),
+		allowArgs: true,
+		subcommands: [
+			{ name: "pick", description: t("slashCommands.subcommands.session.pick") },
+			{ name: "delete", description: t("slashCommands.subcommands.session.delete") },
+		],
+	},
 	{
 		name: "btw",
 		description: t("slashCommands.descriptions.btw"),
@@ -308,7 +316,7 @@ function extractBashBlocks(text: string): string[] {
 export function executeSlashCommand(parsed: ParsedSlashCommand, extras: SlashCommandExtras): boolean {
 	const { name, args } = parsed;
 	const { sendCommand } = extras;
-	const { openSettings, openHotkeys, openSessionStats, openModelSelect } = useUIStore.getState();
+	const { openSettings, openHotkeys, openSessionStats, openModelSelect, openSessionPicker } = useUIStore.getState();
 	switch (name.toLowerCase()) {
 		case "new":
 			sendCommand({ type: "new_session" });
@@ -389,9 +397,25 @@ export function executeSlashCommand(parsed: ParsedSlashCommand, extras: SlashCom
 			navigator.clipboard.writeText(text).catch(() => {});
 			return true;
 		}
-		case "session":
-			openSessionStats();
-			return true;
+		case "session": {
+			const arg = args.trim().toLowerCase();
+			if (!arg) {
+				openSessionStats();
+				return true;
+			}
+			if (arg === "pick") {
+				openSessionPicker();
+				sendCommand({ type: "list_sessions" });
+				return true;
+			}
+			if (arg === "delete") {
+				const sessionFile = useSessionStore.getState().sessionState?.sessionFile;
+				if (!sessionFile) return false;
+				sendCommand({ type: "delete_session", sessionPath: sessionFile });
+				return true;
+			}
+			return false;
+		}
 		case "btw":
 			if (!args.trim()) return false;
 			sendCommand({ type: "steer", message: args.trim() });

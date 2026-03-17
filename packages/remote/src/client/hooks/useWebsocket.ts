@@ -7,6 +7,7 @@ import type {
 	MessageRole,
 	ModelInfo,
 	RpcCommand,
+	SessionListEntry,
 	SessionState,
 	SessionStats,
 } from "../types";
@@ -19,7 +20,8 @@ const NEEDS_STATE_REFETCH_EVENTS = new Set<string | undefined>([
 	"set_plan_mode",
 	"toggle_fast_mode",
 	"set_fast_mode",
-	"new_session"
+	"new_session",
+	"switch_session",
 ]);
 
 export function useWebSocket(): { sendCommand: (cmd: RpcCommand) => void } {
@@ -178,6 +180,10 @@ export function useWebSocket(): { sendCommand: (cmd: RpcCommand) => void } {
 					if (resp.command === "search_files" && resp.success && resp.data) {
 						const data = resp.data as { query: string; files: FuzzyFindMatch[] };
 						s.setFileSearch(data.query, data.files);
+					}
+					if (resp.command === "list_sessions" && resp.success && resp.data) {
+						const data = resp.data as { sessions: SessionListEntry[] };
+						if (data.sessions) s.setSessions(data.sessions);
 					}
 					break;
 				}

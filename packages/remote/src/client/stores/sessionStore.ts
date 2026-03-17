@@ -5,6 +5,7 @@ import type {
 	Message,
 	MessageRole,
 	ModelInfo,
+	SessionListEntry,
 	SessionState,
 	SessionStats,
 	ToolExecution,
@@ -33,6 +34,7 @@ interface SessionStore {
 	availableModels: ModelInfo[];
 	sessionStats: SessionStats | null;
 	fileSearch: { query: string; matches: FuzzyFindMatch[] } | null;
+	sessions: SessionListEntry[] | null;
 
 	// --- Actions ---
 	setConnected: (connected: boolean) => void;
@@ -55,6 +57,7 @@ interface SessionStore {
 	setSessionStats: (stats: SessionStats | null) => void;
 	setFileSearch: (query: string, matches: FuzzyFindMatch[]) => void;
 	clearFileSearch: () => void;
+	setSessions: (sessions: SessionListEntry[]) => void;
 	clearMessages: () => void;
 }
 
@@ -74,6 +77,7 @@ export const useSessionStore = create<SessionStore>(set => ({
 	availableModels: [],
 	sessionStats: null,
 	fileSearch: null,
+	sessions: null,
 
 	// --- Actions ---
 
@@ -168,6 +172,7 @@ export const useSessionStore = create<SessionStore>(set => ({
 	setSessionStats: stats => set({ sessionStats: stats }),
 	setFileSearch: (query, matches) => set({ fileSearch: { query, matches } }),
 	clearFileSearch: () => set({ fileSearch: null }),
+	setSessions: sessions => set({ sessions }),
 
 	clearMessages: () =>
 		set({

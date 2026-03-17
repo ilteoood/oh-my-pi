@@ -6,6 +6,7 @@ const initialState = {
 	hotkeysOpen: false,
 	sessionStatsOpen: false,
 	modelSelectOpen: false,
+	sessionPickerOpen: false,
 };
 
 beforeEach(() => {
@@ -19,6 +20,7 @@ describe("uiStore", () => {
 		expect(state.hotkeysOpen).toBe(false);
 		expect(state.sessionStatsOpen).toBe(false);
 		expect(state.modelSelectOpen).toBe(false);
+		expect(state.sessionPickerOpen).toBe(false);
 	});
 
 	describe("settings", () => {
@@ -66,6 +68,18 @@ describe("uiStore", () => {
 			useUIStore.setState({ modelSelectOpen: true });
 			useUIStore.getState().closeModelSelect();
 			expect(useUIStore.getState().modelSelectOpen).toBe(false);
+		});
+	});
+
+	describe("sessionPicker", () => {
+		it("opens", () => {
+			useUIStore.getState().openSessionPicker();
+			expect(useUIStore.getState().sessionPickerOpen).toBe(true);
+		});
+		it("closes", () => {
+			useUIStore.setState({ sessionPickerOpen: true });
+			useUIStore.getState().closeSessionPicker();
+			expect(useUIStore.getState().sessionPickerOpen).toBe(false);
 		});
 	});
 });

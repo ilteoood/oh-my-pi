@@ -270,6 +270,7 @@ describe("executeSlashCommand", () => {
 	let openHotkeys: ReturnType<typeof vi.fn>;
 	let openSessionStats: ReturnType<typeof vi.fn>;
 	let openModelSelect: ReturnType<typeof vi.fn>;
+	let openSessionPicker: ReturnType<typeof vi.fn>;
 	let clipboardWriteText: ReturnType<typeof vi.fn>;
 
 	beforeEach(() => {
@@ -278,6 +279,7 @@ describe("executeSlashCommand", () => {
 		openHotkeys = vi.fn();
 		openSessionStats = vi.fn();
 		openModelSelect = vi.fn();
+		openSessionPicker = vi.fn();
 		clipboardWriteText = vi.fn().mockResolvedValue(undefined);
 
 		vi.mocked(useUIStore.getState).mockReturnValue({
@@ -285,6 +287,7 @@ describe("executeSlashCommand", () => {
 			openHotkeys,
 			openSessionStats,
 			openModelSelect,
+			openSessionPicker,
 		} as unknown as ReturnType<typeof useUIStore.getState>);
 
 		vi.mocked(useSessionStore.getState).mockReturnValue({
@@ -500,11 +503,42 @@ describe("executeSlashCommand", () => {
 	});
 
 	// --- session ---
-	it("session: opens session stats and returns true", () => {
+	it("session (no args): opens session stats and returns true", () => {
 		const result = executeSlashCommand({ name: "session", args: "" }, { sendCommand });
 		expect(result).toBe(true);
 		expect(openSessionStats).toHaveBeenCalled();
 		expect(sendCommand).not.toHaveBeenCalled();
+	});
+
+	it("session pick: opens session picker and sends list_sessions", () => {
+		const result = executeSlashCommand({ name: "session", args: "pick" }, { sendCommand });
+		expect(result).toBe(true);
+		expect(openSessionPicker).toHaveBeenCalled();
+		expect(sendCommand).toHaveBeenCalledWith({ type: "list_sessions" });
+	});
+
+	it("session delete: sends delete_session with current sessionFile", () => {
+		vi.mocked(useSessionStore.getState).mockReturnValue({
+			messages: [],
+			clearFileSearch: vi.fn(),
+			fileSearch: null,
+			sessionState: { sessionFile: "/sessions/active.jsonl" },
+		} as unknown as ReturnType<typeof useSessionStore.getState>);
+		const result = executeSlashCommand({ name: "session", args: "delete" }, { sendCommand });
+		expect(result).toBe(true);
+		expect(sendCommand).toHaveBeenCalledWith({ type: "delete_session", sessionPath: "/sessions/active.jsonl" });
+	});
+
+	it("session delete: returns false when no active session", () => {
+		// sessionState is null / has no sessionFile
+		const result = executeSlashCommand({ name: "session", args: "delete" }, { sendCommand });
+		expect(result).toBe(false);
+		expect(sendCommand).not.toHaveBeenCalled();
+	});
+
+	it("session (unknown subcommand): returns false", () => {
+		const result = executeSlashCommand({ name: "session", args: "unknown" }, { sendCommand });
+		expect(result).toBe(false);
 	});
 
 	// --- btw ---

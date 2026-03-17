@@ -2,6 +2,8 @@ import * as os from "node:os";
 import * as path from "node:path";
 import type { RpcCommand, RpcResponse, RpcSessionState } from "@oh-my-pi/pi-coding-agent/modes/rpc/rpc-types";
 import type { AgentSession } from "@oh-my-pi/pi-coding-agent/session/agent-session";
+import { SessionManager } from "@oh-my-pi/pi-coding-agent/session/session-manager";
+import { FileSessionStorage } from "@oh-my-pi/pi-coding-agent/session/session-storage";
 import { fuzzyFind } from "@oh-my-pi/pi-natives";
 import { getProjectDir, logger } from "@oh-my-pi/pi-utils";
 
@@ -195,6 +197,57 @@ export async function handleCommand(session: AgentSession, command: RpcCommand):
 			}
 			session.setSessionName(name);
 			return success(id, "set_session_name");
+		}
+
+		case "list_sessions": {
+			const cwd = session.sessionManager.getCwd();
+			const sessionDir = session.sessionManager.getSessionDir();
+			try {
+				const sessions = await SessionManager.list(cwd, sessionDir);
+				const currentFile = session.sessionFile;
+				const entries = sessions.map(s => ({
+					path: s.path,
+					id: s.id,
+					cwd: s.cwd,
+					title: s.title,
+					created: s.created.toISOString(),
+					modified: s.modified.toISOString(),
+					messageCount: s.messageCount,
+					firstMessage: s.firstMessage,
+					isCurrent: s.path === currentFile,
+				}));
+				return success(id, "list_sessions", { sessions: entries });
+			} catch (e) {
+				return error(id, "list_sessions", e instanceof Error ? e.message : String(e));
+			}
+		}
+
+		case "switch_session": {
+			try {
+				const cancelled = !(await session.switchSession(command.sessionPath));
+				return success(id, "switch_session", { cancelled });
+			} catch (e) {
+				return error(id, "switch_session", e instanceof Error ? e.message : String(e));
+			}
+		}
+
+		case "delete_session": {
+			const targetPath = command.sessionPath;
+			const currentFile = session.sessionFile;
+			// If deleting the active session, detach first so we don't leave a broken state.
+			if (targetPath === currentFile) {
+				const switched = await session.newSession();
+				if (!switched) {
+					return error(id, "delete_session", "Cannot delete active session: new session was cancelled");
+				}
+			}
+			try {
+				const storage = new FileSessionStorage();
+				await storage.deleteSessionWithArtifacts(targetPath);
+				return success(id, "delete_session");
+			} catch (e) {
+				return error(id, "delete_session", e instanceof Error ? e.message : String(e));
+			}
 		}
 
 		// =================================================================

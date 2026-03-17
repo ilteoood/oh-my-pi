@@ -54,7 +54,7 @@ export function ModelSelectModal({ sendCommand }: ModelSelectModalProps) {
 						type="button"
 						className="text-muted hover:text-foreground transition-colors text-xl leading-none cursor-pointer"
 						onClick={closeModelSelect}
-						aria-label="Close"
+						aria-label={t("actions.close")}
 					>
 						<IoClose />
 					</button>

@@ -189,6 +189,9 @@ export type RpcCommand =
 	| { id?: string; type: "set_fast_mode"; enabled: boolean }
 	| { id?: string; type: "set_plan_mode"; enabled: boolean; prompt?: string }
 	| { id?: string; type: "get_last_assistant_text" }
+	| { id?: string; type: "list_sessions" }
+	| { id?: string; type: "switch_session"; sessionPath: string }
+	| { id?: string; type: "delete_session"; sessionPath: string }
 	| { id?: string; type: "stop_remote_server" };
 
 export interface FuzzyFindMatch {
@@ -214,4 +217,16 @@ export interface SessionStats {
 	};
 	premiumRequests: number;
 	cost: number;
+}
+
+export interface SessionListEntry {
+	path: string;
+	id: string;
+	cwd: string;
+	title: string | undefined;
+	created: string;
+	modified: string;
+	messageCount: number;
+	firstMessage: string;
+	isCurrent: boolean;
 }

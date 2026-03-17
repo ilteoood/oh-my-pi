@@ -4,6 +4,7 @@ import type {
 	FuzzyFindMatch,
 	Message,
 	ModelInfo,
+	SessionListEntry,
 	SessionState,
 	SessionStats,
 	ToolExecution,
@@ -25,6 +26,7 @@ beforeEach(() => {
 		availableModels: [],
 		sessionStats: null,
 		fileSearch: null,
+		sessions: null,
 	});
 });
 
@@ -391,5 +393,44 @@ describe("clearMessages", () => {
 		const state = useSessionStore.getState();
 		expect(state.messages).toEqual([]);
 		expect(state.toolExecutions).toEqual({});
+	});
+});
+
+describe("setSessions", () => {
+	it("starts as null", () => {
+		expect(useSessionStore.getState().sessions).toBeNull();
+	});
+
+	it("stores a sessions array", () => {
+		const session: SessionListEntry = {
+			path: "/sessions/abc.jsonl",
+			id: "abc",
+			cwd: "/project",
+			title: "My session",
+			created: "2024-01-01T00:00:00.000Z",
+			modified: "2024-01-01T00:00:00.000Z",
+			messageCount: 3,
+			firstMessage: "Hello",
+			isCurrent: false,
+		};
+		useSessionStore.getState().setSessions([session]);
+		expect(useSessionStore.getState().sessions).toEqual([session]);
+	});
+
+	it("replaces an existing sessions array", () => {
+		const first: SessionListEntry = {
+			path: "/sessions/a.jsonl",
+			id: "a",
+			cwd: "/",
+			title: undefined,
+			created: "2024-01-01T00:00:00.000Z",
+			modified: "2024-01-01T00:00:00.000Z",
+			messageCount: 0,
+			firstMessage: "",
+			isCurrent: true,
+		};
+		useSessionStore.getState().setSessions([first]);
+		useSessionStore.getState().setSessions([]);
+		expect(useSessionStore.getState().sessions).toEqual([]);
 	});
 });

@@ -119,6 +119,10 @@
 				"code": "Copy last code block",
 				"all": "Copy all code blocks",
 				"cmd": "Copy last bash/python command"
+			},
+			"session": {
+				"pick": "Switch to a different session",
+				"delete": "Delete the current session"
 			}
 		}
 	},
@@ -158,5 +162,16 @@
 	"modelSelect": {
 		"title": "Select Model",
 		"noModels": "No models available"
+	},
+	"sessionPicker": {
+		"title": "Switch Session",
+		"noSessions": "No sessions found",
+		"loading": "Loading sessions...",
+		"current": "Current",
+		"messages": "{{count}} messages",
+		"switchAriaLabel": "Switch to this session"
+	},
+	"actions": {
+		"close": "Close"
 	}
 }

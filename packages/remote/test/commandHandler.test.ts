@@ -2,7 +2,7 @@
 
 import type { AgentSession, SessionStats } from "@oh-my-pi/pi-coding-agent/session/agent-session";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getSessionState, handleCommand } from "../../src/commandHandler";
+import { getSessionState, handleCommand } from "../src/server/commandHandler";
 
 vi.mock("@oh-my-pi/pi-natives", () => ({
 	fuzzyFind: vi.fn().mockResolvedValue({ matches: [] }),
@@ -16,6 +16,24 @@ vi.mock("@oh-my-pi/pi-utils", () => ({
 		debug: vi.fn(),
 		info: vi.fn(),
 	},
+}));
+
+const { mockSessionManagerList, mockDeleteSessionWithArtifacts } = vi.hoisted(() => ({
+	mockSessionManagerList: vi.fn().mockResolvedValue([]),
+	mockDeleteSessionWithArtifacts: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("@oh-my-pi/pi-coding-agent/session/session-manager", () => ({
+	SessionManager: {
+		list: (...args: unknown[]) => mockSessionManagerList(...args),
+	},
+}));
+
+vi.mock("@oh-my-pi/pi-coding-agent/session/session-storage", () => ({
+	// eslint-disable-next-line func-style
+	FileSessionStorage: vi.fn(function (this: unknown) {
+		(this as { deleteSessionWithArtifacts: unknown }).deleteSessionWithArtifacts = mockDeleteSessionWithArtifacts;
+	}),
 }));
 
 const MOCK_MODEL = { provider: "anthropic", id: "claude-3-5", name: "Claude 3.5" } as const;
@@ -74,6 +92,12 @@ function makeSession(): AgentSession {
 		setPlanModeState: vi.fn(),
 		toggleFastMode: vi.fn().mockReturnValue(false),
 		setFastMode: vi.fn(),
+		switchSession: vi.fn().mockResolvedValue(true),
+		sessionManager: {
+			getCwd: vi.fn().mockReturnValue("/project"),
+			getSessionDir: vi.fn().mockReturnValue("/project/.sessions"),
+			getSessionFile: vi.fn().mockReturnValue(undefined),
+		},
 	} as unknown as AgentSession;
 }
 
@@ -157,7 +181,7 @@ describe("handleCommand", () => {
 		});
 
 		it("passes images and streamingBehavior", async () => {
-			const images = [{ type: "base64" as const, mediaType: "image/png" as const, data: "abc" }];
+			const images = [{ type: "image" as const, mimeType: "image/png", data: "abc" }];
 			await handleCommand(session, { type: "prompt", message: "hi", images, streamingBehavior: "steer" });
 
 			expect(session.prompt).toHaveBeenCalledWith("hi", { images, streamingBehavior: "steer" });
@@ -297,7 +321,10 @@ describe("handleCommand", () => {
 
 	describe("set_thinking_level", () => {
 		it("calls setThinkingLevel and returns success", async () => {
-			const res = await handleCommand(session, { type: "set_thinking_level", level: "medium" });
+			const res = await handleCommand(session, {
+				type: "set_thinking_level",
+				level: "medium" as import("@oh-my-pi/pi-agent-core").ThinkingLevel,
+			});
 
 			expect(session.setThinkingLevel).toHaveBeenCalledWith("medium");
 			expect(res).toMatchObject({ type: "response", command: "set_thinking_level", success: true });
@@ -624,6 +651,157 @@ describe("handleCommand", () => {
 			const res = await handleCommand(session, { type: "abort" });
 
 			expect((res as { id?: string }).id).toBeUndefined();
+		});
+	});
+
+	describe("list_sessions", () => {
+		beforeEach(() => {
+			mockSessionManagerList.mockReset();
+		});
+
+		it("returns empty sessions array when no sessions exist", async () => {
+			mockSessionManagerList.mockResolvedValue([]);
+			const res = await handleCommand(session, { type: "list_sessions" });
+
+			expect(res).toMatchObject({
+				type: "response",
+				command: "list_sessions",
+				success: true,
+				data: { sessions: [] },
+			});
+		});
+
+		it("maps SessionInfo to serialisable entries with isCurrent flag", async () => {
+			const now = new Date("2024-01-01T00:00:00.000Z");
+			mockSessionManagerList.mockResolvedValue([
+				{
+					path: "/sessions/abc.jsonl",
+					id: "abc",
+					cwd: "/project",
+					title: "My session",
+					created: now,
+					modified: now,
+					messageCount: 3,
+					firstMessage: "Hello",
+					allMessagesText: "Hello",
+				},
+			]);
+			// Set sessionFile so that isCurrent is true for this entry
+			(session as { sessionFile: string | undefined }).sessionFile = "/sessions/abc.jsonl";
+
+			const res = await handleCommand(session, { type: "list_sessions" });
+			const data = (res as { data: { sessions: unknown[] } }).data;
+
+			expect(data.sessions).toHaveLength(1);
+			expect(data.sessions[0]).toMatchObject({
+				path: "/sessions/abc.jsonl",
+				id: "abc",
+				cwd: "/project",
+				title: "My session",
+				created: "2024-01-01T00:00:00.000Z",
+				modified: "2024-01-01T00:00:00.000Z",
+				messageCount: 3,
+				firstMessage: "Hello",
+				isCurrent: true,
+			});
+		});
+
+		it("marks isCurrent false when session path does not match active session", async () => {
+			const now = new Date();
+			mockSessionManagerList.mockResolvedValue([
+				{
+					path: "/sessions/other.jsonl",
+					id: "x",
+					cwd: "/",
+					title: undefined,
+					created: now,
+					modified: now,
+					messageCount: 0,
+					firstMessage: "",
+					allMessagesText: "",
+				},
+			]);
+			// sessionFile is undefined by default in makeSession
+			const res = await handleCommand(session, { type: "list_sessions" });
+			const data = (res as unknown as { data: { sessions: { isCurrent: boolean }[] } }).data;
+			expect(data.sessions[0]?.isCurrent).toBe(false);
+		});
+
+		it("returns error when SessionManager.list throws", async () => {
+			mockSessionManagerList.mockRejectedValue(new Error("disk error"));
+			const res = await handleCommand(session, { type: "list_sessions" });
+			expect(res).toMatchObject({ success: false });
+			expect((res as { error: string }).error).toContain("disk error");
+		});
+	});
+
+	describe("switch_session", () => {
+		it("calls session.switchSession and returns cancelled:false when it resolves true", async () => {
+			(session.switchSession as ReturnType<typeof vi.fn>).mockResolvedValue(true);
+			const res = await handleCommand(session, { type: "switch_session", sessionPath: "/sessions/abc.jsonl" });
+
+			expect(session.switchSession).toHaveBeenCalledWith("/sessions/abc.jsonl");
+			expect(res).toMatchObject({
+				type: "response",
+				command: "switch_session",
+				success: true,
+				data: { cancelled: false },
+			});
+		});
+
+		it("returns cancelled:true when switchSession resolves false", async () => {
+			(session.switchSession as ReturnType<typeof vi.fn>).mockResolvedValue(false);
+			const res = await handleCommand(session, { type: "switch_session", sessionPath: "/sessions/abc.jsonl" });
+			expect(res).toMatchObject({ success: true, data: { cancelled: true } });
+		});
+
+		it("returns error response when switchSession throws", async () => {
+			(session.switchSession as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("switch failed"));
+			const res = await handleCommand(session, { type: "switch_session", sessionPath: "/sessions/abc.jsonl" });
+			expect(res).toMatchObject({ success: false });
+			expect((res as { error: string }).error).toContain("switch failed");
+		});
+	});
+
+	describe("delete_session", () => {
+		beforeEach(() => {
+			mockDeleteSessionWithArtifacts.mockReset();
+			mockDeleteSessionWithArtifacts.mockResolvedValue(undefined);
+		});
+
+		it("deletes a non-active session without calling newSession", async () => {
+			// sessionFile is undefined so /sessions/other.jsonl is not the active session
+			const res = await handleCommand(session, { type: "delete_session", sessionPath: "/sessions/other.jsonl" });
+
+			expect(session.newSession).not.toHaveBeenCalled();
+			expect(mockDeleteSessionWithArtifacts).toHaveBeenCalledWith("/sessions/other.jsonl");
+			expect(res).toMatchObject({ type: "response", command: "delete_session", success: true });
+		});
+
+		it("calls newSession before deleting the active session", async () => {
+			(session as { sessionFile: string | undefined }).sessionFile = "/sessions/active.jsonl";
+			const res = await handleCommand(session, { type: "delete_session", sessionPath: "/sessions/active.jsonl" });
+
+			expect(session.newSession).toHaveBeenCalled();
+			expect(mockDeleteSessionWithArtifacts).toHaveBeenCalledWith("/sessions/active.jsonl");
+			expect(res).toMatchObject({ type: "response", command: "delete_session", success: true });
+		});
+
+		it("returns error when newSession is cancelled while deleting active session", async () => {
+			(session as { sessionFile: string | undefined }).sessionFile = "/sessions/active.jsonl";
+			(session.newSession as ReturnType<typeof vi.fn>).mockResolvedValue(false);
+			const res = await handleCommand(session, { type: "delete_session", sessionPath: "/sessions/active.jsonl" });
+
+			expect(mockDeleteSessionWithArtifacts).not.toHaveBeenCalled();
+			expect(res).toMatchObject({ success: false });
+			expect((res as { error: string }).error).toContain("cancelled");
+		});
+
+		it("returns error when deleteSessionWithArtifacts throws", async () => {
+			mockDeleteSessionWithArtifacts.mockRejectedValue(new Error("unlink failed"));
+			const res = await handleCommand(session, { type: "delete_session", sessionPath: "/sessions/other.jsonl" });
+			expect(res).toMatchObject({ success: false });
+			expect((res as { error: string }).error).toContain("unlink failed");
 		});
 	});
 });

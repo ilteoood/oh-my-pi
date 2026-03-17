@@ -42,7 +42,7 @@ export function InfoModal({ variant }: InfoModalProps) {
 						type="button"
 						className="text-muted hover:text-foreground transition-colors text-xl leading-none cursor-pointer"
 						onClick={onClose}
-						aria-label="Close"
+						aria-label={t("actions.close")}
 					>
 						<IoClose />
 					</button>

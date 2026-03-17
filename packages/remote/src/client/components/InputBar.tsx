@@ -153,7 +153,7 @@ export function InputBar({ sendCommand }: InputBarProps) {
 				const body = input.slice(1);
 				const spaceIdx = body.indexOf(" ");
 				const commandName = body.slice(0, spaceIdx);
-				setInput(`/${commandName} ${item.name}`);
+				setInput(`/${commandName} ${item.name} `);
 			}
 
 			setMenuDismissed(false);
