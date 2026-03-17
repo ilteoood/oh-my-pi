@@ -735,7 +735,7 @@ export async function runRootCommand(parsed: Args, rawArgs: string[]): Promise<v
 		if (parsedArgs.remote !== undefined) {
 			const remotePort = typeof parsedArgs.remote === "string" ? parseInt(parsedArgs.remote, 10) : 3848;
 			try {
-				const { startRemoteServer } = await import("@oh-my-pi/omp-remote");
+				const { startRemoteServer } = await import("@oh-my-pi/omp-remote/server");
 				const remote = await startRemoteServer(session, remotePort);
 				notifs.push({ kind: "info", message: `Remote control: ${remote.url}` });
 			} catch (e) {

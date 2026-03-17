@@ -1,15 +1,14 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import type { RpcCommand } from "@oh-my-pi/pi-coding-agent/modes/rpc/rpc-types";
 import type { AgentSession } from "@oh-my-pi/pi-coding-agent/session/agent-session";
 import { logger } from "@oh-my-pi/pi-utils";
 import { $ } from "bun";
 import { Hono } from "hono";
-import { serveStatic, upgradeWebSocket, websocket } from "hono/bun";
+import { serveStatic, websocket } from "hono/bun";
 import type { WSContext } from "hono/ws";
-import { getSessionState, handleCommand } from "./commandHandler";
+import { webSocketHandler } from "./webSocketHandler";
 
-const PACKAGE_ROOT = path.join(import.meta.dir, "..");
+const PACKAGE_ROOT = path.join(import.meta.dir, "..", "..");
 const CLIENT_SRC_DIR = path.join(PACKAGE_ROOT, "src", "client");
 const STATIC_DIR = path.join(PACKAGE_ROOT, "dist", "client");
 const IS_BUN_COMPILED =
@@ -75,14 +74,6 @@ async function ensureClientBuild(): Promise<void> {
 	}
 }
 
-function send(ws: WSContext, data: object): void {
-	try {
-		ws.send(JSON.stringify(data));
-	} catch {
-		// Client may have disconnected between check and send
-	}
-}
-
 export async function startRemoteServer(
 	session: AgentSession,
 	port = 3848,
@@ -93,52 +84,7 @@ export async function startRemoteServer(
 
 	const app = new Hono();
 
-	app.get(
-		"/ws",
-		upgradeWebSocket(() => ({
-			onOpen(_event, ws) {
-				clients.add(ws);
-
-				// Send initial state and message history
-				send(ws, { type: "state", data: getSessionState(session) });
-				send(ws, { type: "messages", data: { messages: session.messages } });
-			},
-
-			async onMessage(event, ws) {
-				let command: RpcCommand;
-				try {
-					const raw = typeof event.data === "string" ? event.data : event.data.toString();
-					command = JSON.parse(raw) as RpcCommand;
-				} catch {
-					send(ws, {
-						type: "response",
-						command: "unknown",
-						success: false,
-						error: "Invalid JSON",
-					});
-					return;
-				}
-
-				try {
-					const response = await handleCommand(session, command);
-					send(ws, response);
-				} catch (e) {
-					const message = e instanceof Error ? e.message : "Unknown error";
-					send(ws, {
-						id: command.id,
-						type: "response",
-						command: command.type,
-						success: false,
-						error: message,
-					});
-				}
-			},
-
-			onClose(_event, ws) {
-				clients.delete(ws);
-			},
-		})),
-	);
+	app.get("/ws", webSocketHandler(session));
 
 	// Static file serving — direct match first, then SPA fallback to index.html
 	app.use("*", serveStatic({ root: STATIC_DIR }));
