@@ -188,7 +188,8 @@ export type RpcCommand =
 	| { id?: string; type: "toggle_fast_mode" }
 	| { id?: string; type: "set_fast_mode"; enabled: boolean }
 	| { id?: string; type: "set_plan_mode"; enabled: boolean; prompt?: string }
-	| { id?: string; type: "get_last_assistant_text" };
+	| { id?: string; type: "get_last_assistant_text" }
+	| { id?: string; type: "stop_remote_server" };
 
 export interface FuzzyFindMatch {
 	path: string;

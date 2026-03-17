@@ -12,7 +12,7 @@ function send(ws: WSContext, data: object): void {
 	}
 }
 
-export const webSocketHandler = (session: AgentSession, clients: Set<WSContext>) => {
+export const webSocketHandler = (session: AgentSession, clients: Set<WSContext>, onStop: () => void) => {
 	return upgradeWebSocket(() => ({
 		onOpen(_event, ws) {
 			clients.add(ws);
@@ -34,6 +34,14 @@ export const webSocketHandler = (session: AgentSession, clients: Set<WSContext>)
 					success: false,
 					error: "Invalid JSON",
 				});
+				return;
+			}
+
+			if (command.type === "stop_remote_server") {
+				send(ws, { id: command.id, type: "response", command: "stop_remote_server", success: true });
+				// Yield the microtask queue so the response frame is flushed before the server stops
+				await Bun.sleep(0);
+				onStop();
 				return;
 			}
 

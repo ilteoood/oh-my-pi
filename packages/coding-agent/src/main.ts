@@ -96,7 +96,7 @@ async function runInteractiveMode(
 	changelogMarkdown: string | undefined,
 	notifs: (InteractiveModeNotify | null)[],
 	versionCheckPromise: Promise<string | undefined>,
-	initialMessages: string[],
+	parsedArgs: Args,
 	setExtensionUIContext: (uiContext: ExtensionUIContext, hasUI: boolean) => void,
 	lspServers: Array<{ name: string; status: "ready" | "error"; fileTypes: string[]; error?: string }> | undefined,
 	mcpManager: import("./mcp").MCPManager | undefined,
@@ -106,6 +106,20 @@ async function runInteractiveMode(
 	const mode = new InteractiveMode(session, version, changelogMarkdown, setExtensionUIContext, lspServers, mcpManager);
 
 	await mode.init();
+
+	// Start remote control server if requested
+	if (parsedArgs.remote !== undefined) {
+		const parsedPort = parseInt(`${parsedArgs.remote}`, 10);
+		const remotePort = Number.isNaN(parsedPort) ? undefined : parsedPort;
+
+		const remoteUrl = await mode.handleRemoteCommand(remotePort);
+
+		notifs.push(
+			remoteUrl
+				? { kind: "info", message: `Remote control: ${remoteUrl}` }
+				: { kind: "error", message: `Failed to start remote server` },
+		);
+	}
 
 	versionCheckPromise
 		.then(newVersion => {
@@ -139,7 +153,7 @@ async function runInteractiveMode(
 		}
 	}
 
-	for (const message of initialMessages) {
+	for (const message of parsedArgs.messages) {
 		try {
 			await session.prompt(message);
 		} catch (error: unknown) {
@@ -731,25 +745,14 @@ export async function runRootCommand(parsed: Args, rawArgs: string[]): Promise<v
 		}
 
 		logger.endTiming();
-		// Start remote control server if requested
-		if (parsedArgs.remote !== undefined) {
-			const remotePort = typeof parsedArgs.remote === "string" ? parseInt(parsedArgs.remote, 10) : 3848;
-			try {
-				const { startRemoteServer } = await import("@oh-my-pi/omp-remote/server");
-				const remote = await startRemoteServer(session, remotePort);
-				notifs.push({ kind: "info", message: `Remote control: ${remote.url}` });
-			} catch (e) {
-				const msg = e instanceof Error ? e.message : "Unknown error";
-				notifs.push({ kind: "error", message: `Failed to start remote server: ${msg}` });
-			}
-		}
+
 		await runInteractiveMode(
 			session,
 			VERSION,
 			changelogMarkdown,
 			notifs,
 			versionCheckPromise,
-			parsedArgs.messages,
+			parsedArgs,
 			setToolUIContext,
 			lspServers,
 			mcpManager,

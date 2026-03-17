@@ -84,7 +84,12 @@ export async function startRemoteServer(
 
 	const app = new Hono();
 
-	app.get("/ws", webSocketHandler(session, clients));
+	const stopRef = { fn: (): void => {} };
+
+	app.get(
+		"/ws",
+		webSocketHandler(session, clients, () => stopRef.fn()),
+	);
 
 	// Static file serving — direct match first, then SPA fallback to index.html
 	app.use("*", serveStatic({ root: STATIC_DIR }));
@@ -110,20 +115,22 @@ export async function startRemoteServer(
 
 	const actualPort = server.port ?? port;
 
+	stopRef.fn = () => {
+		unsubscribe();
+		for (const ws of clients) {
+			try {
+				ws.close();
+			} catch {
+				// Connection may already be gone
+			}
+		}
+		clients.clear();
+		server.stop(true);
+	};
+
 	return {
 		port: actualPort,
 		url: `http://localhost:${actualPort}`,
-		stop: () => {
-			unsubscribe();
-			for (const ws of clients) {
-				try {
-					ws.close();
-				} catch {
-					// Connection may already be gone
-				}
-			}
-			clients.clear();
-			server.stop();
-		},
+		stop: stopRef.fn,
 	};
 }

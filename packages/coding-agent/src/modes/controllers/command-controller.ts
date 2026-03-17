@@ -35,6 +35,7 @@ import { openPath } from "../../utils/open";
 
 export class CommandController {
 	constructor(private readonly ctx: InteractiveModeContext) {}
+	#remoteServer: { port: number; url: string; stop: () => void } | undefined;
 
 	openInBrowser(urlOrPath: string): void {
 		openPath(urlOrPath);
@@ -884,6 +885,32 @@ export class CommandController {
 			}
 		}
 		this.ctx.ui.requestRender();
+	}
+
+	async handleRemoteCommand(port = 3848): Promise<string | undefined> {
+		if (this.#remoteServer) {
+			this.ctx.showStatus(`Remote server already running at ${this.#remoteServer.url}`);
+			return this.#remoteServer.url;
+		}
+		try {
+			const { startRemoteServer } = await import("@oh-my-pi/omp-remote/server");
+			this.#remoteServer = await startRemoteServer(this.ctx.session, port);
+			this.ctx.showStatus(`Remote server started at ${this.#remoteServer.url}`);
+			return this.#remoteServer.url;
+		} catch (e) {
+			this.ctx.showError(`Failed to start remote server: ${e instanceof Error ? e.message : String(e)}`);
+		}
+		return;
+	}
+
+	handleRemoteExitCommand(): void {
+		if (!this.#remoteServer) {
+			this.ctx.showWarning("No remote server is running.");
+			return;
+		}
+		this.#remoteServer.stop();
+		this.#remoteServer = undefined;
+		this.ctx.showStatus("Remote server stopped.");
 	}
 }
 

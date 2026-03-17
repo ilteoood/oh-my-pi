@@ -91,7 +91,9 @@
 			"btw": "Ask a side question",
 			"btwHint": "<question>",
 			"settings": "Open settings panel",
-			"hotkeys": "Show keyboard shortcuts"
+			"hotkeys": "Show keyboard shortcuts",
+			"remote": "Start remote control web server",
+			"remote-exit": "Stop remote control web server"
 		},
 		"subcommands": {
 			"thinking": {

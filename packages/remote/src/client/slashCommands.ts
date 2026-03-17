@@ -130,6 +130,7 @@ export const WEB_SLASH_COMMANDS: ReadonlyArray<WebSlashCommandDef> = [
 	},
 	{ name: "settings", description: t("slashCommands.descriptions.settings") },
 	{ name: "hotkeys", description: t("slashCommands.descriptions.hotkeys") },
+	{ name: "remote-exit", description: t("slashCommands.descriptions.remote-exit") },
 ];
 
 const COMMAND_LOOKUP = new Map<string, WebSlashCommandDef>(WEB_SLASH_COMMANDS.map(cmd => [cmd.name, cmd]));
@@ -400,6 +401,9 @@ export function executeSlashCommand(parsed: ParsedSlashCommand, extras: SlashCom
 			return true;
 		case "hotkeys":
 			openHotkeys();
+			return true;
+		case "remote-exit":
+			sendCommand({ type: "stop_remote_server" });
 			return true;
 		default:
 			return false;

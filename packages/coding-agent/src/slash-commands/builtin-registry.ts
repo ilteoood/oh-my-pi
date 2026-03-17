@@ -486,6 +486,26 @@ const BUILTIN_SLASH_COMMAND_REGISTRY: ReadonlyArray<BuiltinSlashCommandSpec> = [
 		},
 	},
 	{
+		name: "remote",
+		description: "Start remote control web server",
+		inlineHint: "[port]",
+		allowArgs: true,
+		handle: async (command, runtime) => {
+			const portArg = command.args.trim();
+			const port = portArg ? parseInt(portArg, 10) : 3848;
+			runtime.ctx.editor.setText("");
+			await runtime.ctx.handleRemoteCommand(port);
+		},
+	},
+	{
+		name: "remote-exit",
+		description: "Stop remote control web server",
+		handle: (_command, runtime) => {
+			runtime.ctx.editor.setText("");
+			runtime.ctx.handleRemoteExitCommand();
+		},
+	},
+	{
 		name: "debug",
 		description: "Open debug tools selector",
 		handle: (_command, runtime) => {

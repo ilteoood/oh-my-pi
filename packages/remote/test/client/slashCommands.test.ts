@@ -554,4 +554,29 @@ describe("executeSlashCommand", () => {
 		expect(result).toBe(true);
 		expect(sendCommand).toHaveBeenCalledWith({ type: "new_session" });
 	});
+
+	// --- remote-exit ---
+	it("remote-exit: sends stop_remote_server and returns true", () => {
+		const result = executeSlashCommand({ name: "remote-exit", args: "" }, { sendCommand });
+		expect(result).toBe(true);
+		expect(sendCommand).toHaveBeenCalledWith({ type: "stop_remote_server" });
+	});
+});
+
+describe("remote-exit command registration", () => {
+	it("is in WEB_SLASH_COMMANDS", () => {
+		const names = WEB_SLASH_COMMANDS.map(c => c.name);
+		expect(names).toContain("remote-exit");
+	});
+
+	it("isKnownSlashCommand recognises remote-exit", () => {
+		expect(isKnownSlashCommand("remote-exit")).toBe(true);
+	});
+
+	it("executeSlashCommand sends stop_remote_server and returns true", () => {
+		const sendCommand = vi.fn();
+		const result = executeSlashCommand({ name: "remote-exit", args: "" }, { sendCommand });
+		expect(result).toBe(true);
+		expect(sendCommand).toHaveBeenCalledWith({ type: "stop_remote_server" });
+	});
 });

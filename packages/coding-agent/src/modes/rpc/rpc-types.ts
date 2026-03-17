@@ -66,7 +66,8 @@ export type RpcCommand =
 	| { id?: string; type: "set_plan_mode"; enabled: boolean; prompt?: string }
 
 	// Messages
-	| { id?: string; type: "get_messages" };
+	| { id?: string; type: "get_messages" }
+	| { id?: string; type: "stop_remote_server" };
 
 // ============================================================================
 // RPC State
@@ -190,7 +191,7 @@ export type RpcResponse =
 
 	// Messages
 	| { id?: string; type: "response"; command: "get_messages"; success: true; data: { messages: AgentMessage[] } }
-
+	| { id?: string; type: "response"; command: "stop_remote_server"; success: true }
 	// Error response (any command can fail)
 	| { id?: string; type: "response"; command: string; success: false; error: string };
 
