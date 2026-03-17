@@ -82,14 +82,6 @@
     "./server/*": {
       "types": "./src/server/*.ts",
       "import": "./src/server/*.ts"
-    },
-    "./client": {
-      "types": "./src/client/index.tsx",
-      "import": "./src/client/index.tsx"
-    },
-    "./client/*": {
-      "types": "./src/client/*.ts",
-      "import": "./src/client/*.ts"
     }
   }
 }
