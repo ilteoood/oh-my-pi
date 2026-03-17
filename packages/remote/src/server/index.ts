@@ -84,7 +84,7 @@ export async function startRemoteServer(
 
 	const app = new Hono();
 
-	app.get("/ws", webSocketHandler(session));
+	app.get("/ws", webSocketHandler(session, clients));
 
 	// Static file serving — direct match first, then SPA fallback to index.html
 	app.use("*", serveStatic({ root: STATIC_DIR }));

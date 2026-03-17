@@ -12,9 +12,7 @@ function send(ws: WSContext, data: object): void {
 	}
 }
 
-export const webSocketHandler = (session: AgentSession) => {
-	const clients = new Set<WSContext>();
-
+export const webSocketHandler = (session: AgentSession, clients: Set<WSContext>) => {
 	return upgradeWebSocket(() => ({
 		onOpen(_event, ws) {
 			clients.add(ws);
