@@ -71,7 +71,8 @@
   "files": [
     "src",
     "README.md",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "dist"
   ],
   "exports": {
     "./server": {
