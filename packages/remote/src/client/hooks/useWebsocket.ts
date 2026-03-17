@@ -22,9 +22,10 @@ const NEEDS_STATE_REFETCH_EVENTS = new Set<string | undefined>([
 	"set_fast_mode",
 	"new_session",
 	"switch_session",
+	"delete_session",
 ]);
 
-const NEEDS_MESSAGES_REFETCH_EVENTS = new Set<string | undefined>(["switch_session"]);
+const NEEDS_MESSAGES_REFETCH_EVENTS = new Set<string | undefined>(["switch_session", "delete_session"]);
 
 const extractMessages = (data: Record<string, unknown>) => (data.data as { messages: Message[] })?.messages ?? [];
 
