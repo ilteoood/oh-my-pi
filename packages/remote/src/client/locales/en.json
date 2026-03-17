@@ -6,7 +6,8 @@
 		"thinking": "thinking: {{level}}",
 		"streaming": "Streaming",
 		"compacting": "Compacting",
-		"settingsAriaLabel": "Settings"
+		"settingsAriaLabel": "Settings",
+		"sessionPickerAriaLabel": "Session history"
 	},
 	"inputBar": {
 		"placeholder": "Type a message... (Enter to send, Shift+Enter for newline)",

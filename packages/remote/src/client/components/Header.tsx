@@ -1,6 +1,7 @@
 import { Button, Chip, Tooltip } from "@heroui/react";
 import { useTranslation } from "react-i18next";
 import { IoSettings } from "react-icons/io5";
+import { GoHistory } from "react-icons/go";
 import { useSessionStore } from "../stores/sessionStore";
 import { useUIStore } from "../stores/uiStore";
 import type { RpcCommand } from "../types";
@@ -12,7 +13,7 @@ interface HeaderProps {
 export function Header({ sendCommand }: HeaderProps) {
 	const { t } = useTranslation();
 	const { connected, sessionState, isStreaming, isCompacting } = useSessionStore();
-	const { openSettings, openModelSelect } = useUIStore();
+	const { openSettings, openModelSelect, openSessionPicker } = useUIStore();
 
 	const modelName = sessionState?.model?.name ?? t("header.noModel");
 	const thinkingLevel = sessionState?.thinkingLevel ?? "off";
@@ -61,6 +62,15 @@ export function Header({ sendCommand }: HeaderProps) {
 
 			<div className="flex items-center gap-2">
 				{sessionName && <span className="text-sm text-muted">{sessionName}</span>}
+				<Button
+					variant="ghost"
+					size="sm"
+					isIconOnly
+					onPress={openSessionPicker}
+					aria-label={t("header.sessionPickerAriaLabel")}
+				>
+					<GoHistory size={16} />
+				</Button>
 				<Button
 					variant="ghost"
 					size="sm"
