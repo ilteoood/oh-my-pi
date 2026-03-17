@@ -170,7 +170,7 @@ export function useWebSocket(): { sendCommand: (cmd: RpcCommand) => void } {
 						s.setSessionState(resp.data as SessionState);
 					}
 					if (resp.command === "get_messages" && resp.success && resp.data) {
-						s.setMessages(extractMessages(resp.data as Record<string, unknown>));
+						s.setMessages(extractMessages(resp));
 					}
 					if (resp.success && NEEDS_STATE_REFETCH_EVENTS.has(resp.command)) {
 						const ws = wsRef.current;
