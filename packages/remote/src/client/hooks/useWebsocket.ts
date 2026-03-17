@@ -24,6 +24,10 @@ const NEEDS_STATE_REFETCH_EVENTS = new Set<string | undefined>([
 	"switch_session",
 ]);
 
+const NEEDS_MESSAGES_REFETCH_EVENTS = new Set<string | undefined>(["switch_session"]);
+
+const extractMessages = (data: Record<string, unknown>) => (data.data as { messages: Message[] })?.messages ?? [];
+
 export function useWebSocket(): { sendCommand: (cmd: RpcCommand) => void } {
 	const wsRef = useRef<WebSocket | null>(null);
 	const reconnectTimeoutRef = useRef<number | undefined>(undefined);
@@ -86,7 +90,7 @@ export function useWebSocket(): { sendCommand: (cmd: RpcCommand) => void } {
 					s.setSessionState(data.data as SessionState);
 					break;
 				case "messages":
-					s.setMessages((data.data as { messages: Message[] })?.messages ?? []);
+					s.setMessages(extractMessages(data));
 					break;
 				case "message_start":
 					s.messageStart(((data.message as { role?: string })?.role as MessageRole) ?? "assistant");
@@ -165,10 +169,19 @@ export function useWebSocket(): { sendCommand: (cmd: RpcCommand) => void } {
 					if (resp.command === "get_state" && resp.success && resp.data) {
 						s.setSessionState(resp.data as SessionState);
 					}
+					if (resp.command === "get_messages" && resp.success && resp.data) {
+						s.setMessages(extractMessages(resp.data as Record<string, unknown>));
+					}
 					if (resp.success && NEEDS_STATE_REFETCH_EVENTS.has(resp.command)) {
 						const ws = wsRef.current;
 						if (ws?.readyState === WebSocket.OPEN) {
 							ws.send(JSON.stringify({ type: "get_state" }));
+						}
+					}
+					if (resp.success && NEEDS_MESSAGES_REFETCH_EVENTS.has(resp.command)) {
+						const ws = wsRef.current;
+						if (ws?.readyState === WebSocket.OPEN) {
+							ws.send(JSON.stringify({ type: "get_messages" }));
 						}
 					}
 					if (!resp.success && resp.error) {
