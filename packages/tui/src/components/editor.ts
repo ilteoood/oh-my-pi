@@ -1,7 +1,7 @@
 import { getProjectDir } from "@oh-my-pi/pi-utils";
 import type { AutocompleteProvider, CombinedAutocompleteProvider } from "../autocomplete";
 import { BracketedPasteHandler } from "../bracketed-paste";
-import { type EditorKeybindingsManager, getEditorKeybindings } from "../keybindings";
+import { getKeybindings, type KeybindingsManager } from "../keybindings";
 import { extractPrintableText, matchesKey } from "../keys";
 import { KillRing } from "../kill-ring";
 import type { SymbolTheme } from "../symbols";
@@ -12,10 +12,24 @@ import {
 	moveWordLeft,
 	moveWordRight,
 	padding,
+	replaceTabs,
+	sliceByColumn,
 	truncateToWidth,
 	visibleWidth,
 } from "../utils";
-import { SelectList, type SelectListTheme } from "./select-list";
+import { SelectList, type SelectListLayoutOptions, type SelectListTheme } from "./select-list";
+
+const SLASH_COMMAND_SELECT_LIST_LAYOUT: SelectListLayoutOptions = {
+	minPrimaryColumnWidth: 12,
+	maxPrimaryColumnWidth: 32,
+};
+
+function sanitizeLoadedText(text: string): string {
+	return replaceTabs(text.replace(/\r\n/g, "\n").replace(/\r/g, "\n"))
+		.split("")
+		.filter(char => char === "\n" || char.charCodeAt(0) >= 32)
+		.join("");
+}
 
 const segmenter = getSegmenter();
 
@@ -313,6 +327,7 @@ export class Editor implements Component, Focusable {
 	cursorOverride: string | undefined;
 	/** Display width of the cursorOverride glyph (needed because override may contain ANSI escapes). */
 	cursorOverrideWidth: number | undefined;
+	#promptGutter: string | undefined;
 
 	// Store last layout width for cursor navigation
 	#lastLayoutWidth: number = 80;
@@ -369,6 +384,7 @@ export class Editor implements Component, Focusable {
 
 	// Custom top border (for status line integration)
 	#topBorderContent?: EditorTopBorder;
+	#borderVisible = true;
 
 	constructor(theme: EditorTheme) {
 		this.#theme = theme;
@@ -388,12 +404,23 @@ export class Editor implements Component, Focusable {
 	}
 
 	/**
+	 * Show or hide the editor border chrome.
+	 */
+	setBorderVisible(borderVisible: boolean): void {
+		this.#borderVisible = borderVisible;
+	}
+
+	setPromptGutter(promptGutter: string | undefined): void {
+		this.#promptGutter = promptGutter;
+	}
+
+	/**
 	 * Get the available width for top border content given a total terminal width.
-	 * Accounts for the border characters and horizontal padding.
+	 * Accounts for the border characters and horizontal padding when visible.
 	 */
 	getTopBorderAvailableWidth(terminalWidth: number): number {
 		const paddingX = this.#getEditorPaddingX();
-		const borderWidth = paddingX + 1;
+		const borderWidth = this.#getHorizontalChromeWidth(paddingX);
 		return Math.max(0, terminalWidth - borderWidth * 2);
 	}
 
@@ -487,7 +514,7 @@ export class Editor implements Component, Focusable {
 	/** Internal setText that doesn't reset history state - used by navigateHistory */
 	#setTextInternal(text: string, cursorAnchor: HistoryCursorAnchor = "end"): void {
 		this.#undoStack.length = 0;
-		const lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
+		const lines = sanitizeLoadedText(text).split("\n");
 		this.#state.lines = lines.length === 0 ? [""] : lines;
 		if (cursorAnchor === "start") {
 			this.#state.cursorLine = 0;
@@ -510,18 +537,113 @@ export class Editor implements Component, Focusable {
 		return Math.max(0, padding);
 	}
 
+	#getHorizontalChromeWidth(paddingX: number): number {
+		return this.#borderVisible ? paddingX + 1 : 0;
+	}
+
+	#getPromptGutterWidth(width: number, paddingX: number): number {
+		if (this.#borderVisible || !this.#promptGutter) return 0;
+		const chromeWidth = 2 * this.#getHorizontalChromeWidth(paddingX);
+		const availableWidth = Math.max(0, width - chromeWidth);
+		return Math.min(visibleWidth(this.#promptGutter), availableWidth);
+	}
+
+	#getPromptGutter(
+		width: number,
+		paddingX: number,
+	): { firstLine: string; continuation: string; width: number } | undefined {
+		if (this.#borderVisible || !this.#promptGutter) return undefined;
+		const gutterWidth = this.#getPromptGutterWidth(width, paddingX);
+		if (gutterWidth === 0) return undefined;
+		return {
+			firstLine: sliceByColumn(this.#promptGutter, 0, gutterWidth, true),
+			continuation: padding(gutterWidth),
+			width: gutterWidth,
+		};
+	}
+
 	#getContentWidth(width: number, paddingX: number): number {
-		return Math.max(0, width - 2 * (paddingX + 1));
+		const chromeWidth = 2 * this.#getHorizontalChromeWidth(paddingX);
+		return Math.max(0, width - chromeWidth - this.#getPromptGutterWidth(width, paddingX));
 	}
 
 	#getLayoutWidth(width: number, paddingX: number): number {
 		const contentWidth = this.#getContentWidth(width, paddingX);
-		return Math.max(1, contentWidth - (paddingX === 0 ? 1 : 0));
+		const cursorReserve = this.#borderVisible && paddingX === 0 ? 1 : 0;
+		// Keep cursor/scroll layout addressable even when a borderless prompt gutter consumes every visible column.
+		return Math.max(1, contentWidth - cursorReserve);
 	}
 
 	#getVisibleContentHeight(contentLines: number): number {
 		if (this.#maxHeight === undefined) return contentLines;
-		return Math.max(1, this.#maxHeight - 2);
+		const verticalChrome = this.#borderVisible ? 2 : 0;
+		return Math.max(1, this.#maxHeight - verticalChrome);
+	}
+
+	#getStyledInputCursor(): { text: string; width: number } {
+		const cursorChar = this.#theme.symbols.inputCursor;
+		return { text: `\x1b[5m${cursorChar}\x1b[0m`, width: visibleWidth(cursorChar) };
+	}
+
+	#renderEndOfLineCursorAtWidthLimit(
+		before: string,
+		marker: string,
+		maxWidth: number,
+		replacement?: { text: string; width: number },
+	): { text: string; width: number } {
+		const beforeGraphemes = [...segmenter.segment(before)];
+		const lastGrapheme = beforeGraphemes[beforeGraphemes.length - 1]?.segment;
+		const lastGraphemeWidth = lastGrapheme ? visibleWidth(lastGrapheme) : 0;
+		const builtInCursor = this.#getStyledInputCursor();
+		const fallbackReplacement = lastGrapheme
+			? { text: `\x1b[7m${lastGrapheme}\x1b[0m`, width: lastGraphemeWidth }
+			: builtInCursor;
+		const clampReplacement = (candidate: { text: string; width: number }): { text: string; width: number } => {
+			let text = sliceByColumn(candidate.text, 0, maxWidth, true);
+			let width = visibleWidth(text);
+			if (width > maxWidth) {
+				text = "";
+				width = 0;
+			}
+			return { text, width };
+		};
+
+		let clampedReplacement = clampReplacement(replacement ?? fallbackReplacement);
+		if (replacement && clampedReplacement.width === 0) {
+			// A custom override that cannot fit at all should first fall back to the highlighted tail.
+			clampedReplacement = clampReplacement(fallbackReplacement);
+		}
+		if (lastGrapheme && clampedReplacement.width === 0) {
+			// If even the highlighted trailing grapheme cannot fit, show the built-in single-column cursor.
+			clampedReplacement = clampReplacement(builtInCursor);
+		}
+
+		const replacedSpanWidth = Math.min(maxWidth, Math.max(lastGraphemeWidth, clampedReplacement.width));
+		const prefixWidth = Math.max(0, maxWidth - replacedSpanWidth);
+		const beforePrefix = sliceByColumn(before, 0, prefixWidth, true);
+		const replacementPad = padding(Math.max(0, replacedSpanWidth - clampedReplacement.width));
+		return {
+			text: `${beforePrefix}${replacementPad}${clampedReplacement.text}${marker}`,
+			width: visibleWidth(beforePrefix) + replacedSpanWidth,
+		};
+	}
+
+	#renderTerminalCursorMarker(text: string, marker: string, maxWidth: number): string {
+		if (!marker) return text;
+		if (visibleWidth(text) < maxWidth) {
+			return text + marker;
+		}
+
+		let insertAt = text.length;
+		let offset = 0;
+		for (const seg of segmenter.segment(text)) {
+			if (visibleWidth(seg.segment) > 0) {
+				insertAt = offset;
+			}
+			offset += seg.segment.length;
+		}
+
+		return `${text.slice(0, insertAt)}${marker}${text.slice(insertAt)}`;
 	}
 
 	#getPageScrollStep(totalVisualLines: number): number {
@@ -550,13 +672,15 @@ export class Editor implements Component, Focusable {
 
 	render(width: number): string[] {
 		const paddingX = this.#getEditorPaddingX();
+		const borderVisible = this.#borderVisible;
+		const promptGutter = this.#getPromptGutter(width, paddingX);
 		const contentAreaWidth = this.#getContentWidth(width, paddingX);
 		const layoutWidth = this.#getLayoutWidth(width, paddingX);
 		this.#lastLayoutWidth = layoutWidth;
 
 		// Box-drawing characters for rounded corners
 		const box = this.#theme.symbols.boxRound;
-		const borderWidth = paddingX + 1;
+		const borderWidth = this.#getHorizontalChromeWidth(paddingX);
 		const topLeft = this.borderColor(`${box.topLeft}${box.horizontal.repeat(paddingX)}`);
 		const topRight = this.borderColor(`${box.horizontal.repeat(paddingX)}${box.topRight}`);
 		const bottomLeft = this.borderColor(`${box.bottomLeft}${box.horizontal}${padding(Math.max(0, paddingX - 1))}`);
@@ -570,23 +694,25 @@ export class Editor implements Component, Focusable {
 
 		const result: string[] = [];
 
-		// Render top border: ╭─ [status content] ────────────────╮
-		const topFillWidth = width - borderWidth * 2;
-		if (this.#topBorderContent) {
-			const { content, width: statusWidth } = this.#topBorderContent;
-			if (statusWidth <= topFillWidth) {
-				// Status fits - add fill after it
-				const fillWidth = topFillWidth - statusWidth;
-				result.push(topLeft + content + this.borderColor(box.horizontal.repeat(fillWidth)) + topRight);
+		if (borderVisible) {
+			// Render top border: ╭─ [status content] ────────────────╮
+			const topFillWidth = Math.max(0, width - borderWidth * 2);
+			if (this.#topBorderContent) {
+				const { content, width: statusWidth } = this.#topBorderContent;
+				if (statusWidth <= topFillWidth) {
+					// Status fits - add fill after it
+					const fillWidth = topFillWidth - statusWidth;
+					result.push(topLeft + content + this.borderColor(box.horizontal.repeat(fillWidth)) + topRight);
+				} else {
+					// Status too long - truncate it
+					const truncated = truncateToWidth(content, Math.max(0, topFillWidth - 1));
+					const truncatedWidth = visibleWidth(truncated);
+					const fillWidth = Math.max(0, topFillWidth - truncatedWidth);
+					result.push(topLeft + truncated + this.borderColor(box.horizontal.repeat(fillWidth)) + topRight);
+				}
 			} else {
-				// Status too long - truncate it
-				const truncated = truncateToWidth(content, topFillWidth - 1);
-				const truncatedWidth = visibleWidth(truncated);
-				const fillWidth = Math.max(0, topFillWidth - truncatedWidth);
-				result.push(topLeft + truncated + this.borderColor(box.horizontal.repeat(fillWidth)) + topRight);
+				result.push(topLeft + horizontal.repeat(topFillWidth) + topRight);
 			}
-		} else {
-			result.push(topLeft + horizontal.repeat(topFillWidth) + topRight);
 		}
 
 		// Render each layout line
@@ -598,14 +724,62 @@ export class Editor implements Component, Focusable {
 		const inlineHint = this.#getInlineHint();
 		const hintStyle = this.#theme.hintStyle ?? ((t: string) => `\x1b[2m${t}\x1b[0m`);
 
-		for (const layoutLine of visibleLayoutLines) {
+		for (let visibleIndex = 0; visibleIndex < visibleLayoutLines.length; visibleIndex++) {
+			const layoutLine = visibleLayoutLines[visibleIndex]!;
 			let displayText = layoutLine.text;
 			let displayWidth = visibleWidth(layoutLine.text);
 			let cursorInPadding = false;
+			const showPromptGutter = promptGutter !== undefined && visibleIndex === 0;
+			const gutterText =
+				promptGutter === undefined ? "" : showPromptGutter ? promptGutter.firstLine : promptGutter.continuation;
 
 			// Add cursor if this line has it
 			const hasCursor = layoutLine.hasCursor && layoutLine.cursorPos !== undefined;
 			const marker = emitCursorMarker ? CURSOR_MARKER : "";
+
+			if (!borderVisible && displayWidth > lineContentWidth) {
+				displayText = sliceByColumn(displayText, 0, lineContentWidth, true);
+				displayWidth = visibleWidth(displayText);
+			}
+
+			if (!borderVisible && lineContentWidth === 0) {
+				if (hasCursor && !this.#useTerminalCursor) {
+					const zeroWidthCursorBudget = visibleWidth(gutterText);
+					const zeroWidthCursorReplacement = this.cursorOverride
+						? { text: this.cursorOverride, width: this.cursorOverrideWidth ?? 1 }
+						: this.#getStyledInputCursor();
+					if (showPromptGutter && zeroWidthCursorBudget > 0) {
+						// Keep the leading prompt glyph visible when the gutter consumes the whole row.
+						const promptGlyph = [...segmenter.segment(gutterText)][0]?.segment ?? "";
+						const promptGlyphWidth = visibleWidth(promptGlyph);
+						const remainingCursorWidth = Math.max(0, zeroWidthCursorBudget - promptGlyphWidth);
+						if (remainingCursorWidth === 0) {
+							result.push(`\x1b[7m${promptGlyph}\x1b[0m${marker}`);
+						} else {
+							const widthLimitedCursor = this.#renderEndOfLineCursorAtWidthLimit(
+								"",
+								marker,
+								remainingCursorWidth,
+								zeroWidthCursorReplacement,
+							);
+							result.push(`${promptGlyph}${widthLimitedCursor.text}`);
+						}
+					} else {
+						const widthLimitedCursor = this.#renderEndOfLineCursorAtWidthLimit(
+							gutterText,
+							marker,
+							zeroWidthCursorBudget,
+							zeroWidthCursorReplacement,
+						);
+						result.push(widthLimitedCursor.text);
+					}
+				} else if (hasCursor && this.#useTerminalCursor) {
+					result.push(this.#renderTerminalCursorMarker(gutterText, marker, visibleWidth(gutterText)));
+				} else {
+					result.push(gutterText + (hasCursor ? marker : ""));
+				}
+				continue;
+			}
 
 			if (hasCursor && this.#useTerminalCursor) {
 				if (marker) {
@@ -615,6 +789,8 @@ export class Editor implements Component, Focusable {
 						const hintText = hintStyle(truncateToWidth(inlineHint, Math.max(0, lineContentWidth - displayWidth)));
 						displayText = before + marker + hintText;
 						displayWidth += visibleWidth(inlineHint);
+					} else if (after.length === 0 && !borderVisible && displayWidth >= lineContentWidth) {
+						displayText = this.#renderTerminalCursorMarker(before, marker, lineContentWidth);
 					} else {
 						displayText = before + marker + after;
 					}
@@ -635,7 +811,16 @@ export class Editor implements Component, Focusable {
 				} else if (this.cursorOverride) {
 					// Cursor override replaces the normal end-of-text cursor glyph
 					const overrideWidth = this.cursorOverrideWidth ?? 1;
-					if (inlineHint) {
+					if (!borderVisible && displayWidth + overrideWidth > lineContentWidth) {
+						// Borderless editors have no spare padding cell for an end-of-line cursor glyph.
+						// Preserve cursorOverride by replacing the tail of the line with it.
+						const widthLimitedCursor = this.#renderEndOfLineCursorAtWidthLimit(before, marker, lineContentWidth, {
+							text: this.cursorOverride,
+							width: overrideWidth,
+						});
+						displayText = widthLimitedCursor.text;
+						displayWidth = widthLimitedCursor.width;
+					} else if (inlineHint) {
 						const availWidth = Math.max(0, lineContentWidth - displayWidth - overrideWidth);
 						const hintText = hintStyle(truncateToWidth(inlineHint, availWidth));
 						displayText = before + marker + this.cursorOverride + hintText;
@@ -646,16 +831,21 @@ export class Editor implements Component, Focusable {
 					}
 				} else {
 					// Cursor is at the end - add thin cursor glyph
-					const cursorChar = this.#theme.symbols.inputCursor;
-					const cursor = `\x1b[5m${cursorChar}\x1b[0m`;
-					if (inlineHint) {
-						const availWidth = Math.max(0, lineContentWidth - displayWidth - visibleWidth(cursorChar));
+					const { text: cursor, width: cursorWidth } = this.#getStyledInputCursor();
+					if (!borderVisible && displayWidth + cursorWidth > lineContentWidth) {
+						// Borderless editors have no spare padding cell for an end-of-line cursor glyph.
+						// Highlight the last grapheme so the cursor stays visible without consuming width.
+						const widthLimitedCursor = this.#renderEndOfLineCursorAtWidthLimit(before, marker, lineContentWidth);
+						displayText = widthLimitedCursor.text;
+						displayWidth = widthLimitedCursor.width;
+					} else if (inlineHint) {
+						const availWidth = Math.max(0, lineContentWidth - displayWidth - cursorWidth);
 						const hintText = hintStyle(truncateToWidth(inlineHint, availWidth));
 						displayText = before + marker + cursor + hintText;
-						displayWidth += visibleWidth(cursorChar) + Math.min(visibleWidth(inlineHint), availWidth);
+						displayWidth += cursorWidth + Math.min(visibleWidth(inlineHint), availWidth);
 					} else {
 						displayText = before + marker + cursor;
-						displayWidth += visibleWidth(cursorChar);
+						displayWidth += cursorWidth;
 					}
 					if (displayWidth > lineContentWidth && paddingX > 0) {
 						cursorInPadding = true;
@@ -663,10 +853,15 @@ export class Editor implements Component, Focusable {
 				}
 			}
 
-			// All lines have consistent borders based on padding
-			const isLastLine = layoutLine === visibleLayoutLines[visibleLayoutLines.length - 1];
 			const linePad = padding(Math.max(0, lineContentWidth - displayWidth));
 
+			if (!borderVisible) {
+				result.push(gutterText + displayText + linePad);
+				continue;
+			}
+
+			// All lines have consistent borders based on padding
+			const isLastLine = visibleIndex === visibleLayoutLines.length - 1;
 			const rightPaddingWidth = Math.max(0, paddingX - (cursorInPadding ? 1 : 0));
 			if (isLastLine) {
 				const bottomRightPadding = Math.max(0, paddingX - 1 - (cursorInPadding ? 1 : 0));
@@ -691,12 +886,12 @@ export class Editor implements Component, Focusable {
 	}
 
 	handleInput(data: string): void {
-		const kb = getEditorKeybindings();
+		const kb = getKeybindings();
 
 		// Handle character jump mode (awaiting next character to jump to)
 		if (this.#jumpMode !== null) {
 			// Cancel if the hotkey is pressed again
-			if (kb.matches(data, "jumpForward") || kb.matches(data, "jumpBackward")) {
+			if (kb.matches(data, "tui.editor.jumpForward") || kb.matches(data, "tui.editor.jumpBackward")) {
 				this.#jumpMode = null;
 				return;
 			}
@@ -727,13 +922,15 @@ export class Editor implements Component, Focusable {
 
 		// Handle special key combinations first
 
-		// Ctrl+C - Exit (let parent handle this)
+		// Ctrl+C is reserved by parent components for app-level handling.
+		// Do not consume arbitrary user-bound "copy" keys here, since the editor
+		// has no copy implementation and would make those keys disappear.
 		if (matchesKey(data, "ctrl+c")) {
 			return;
 		}
 
-		// Ctrl+- / Ctrl+_ - Undo last edit
-		if (matchesKey(data, "ctrl+-") || matchesKey(data, "ctrl+_")) {
+		// Undo
+		if (kb.matches(data, "tui.editor.undo")) {
 			this.#applyUndo();
 			return;
 		}
@@ -741,27 +938,26 @@ export class Editor implements Component, Focusable {
 		// Handle autocomplete special keys first (but don't block other input)
 		if (this.#autocompleteState && this.#autocompleteList) {
 			// Escape - cancel autocomplete
-			if (matchesKey(data, "escape") || matchesKey(data, "esc")) {
+			if (kb.matches(data, "tui.select.cancel")) {
 				this.#cancelAutocomplete(true);
 				return;
 			}
 			// Let the autocomplete list handle navigation and selection
 			else if (
-				matchesKey(data, "up") ||
-				matchesKey(data, "down") ||
-				matchesKey(data, "pageUp") ||
-				matchesKey(data, "pageDown") ||
-				matchesKey(data, "enter") ||
-				matchesKey(data, "return") ||
+				kb.matches(data, "tui.select.up") ||
+				kb.matches(data, "tui.select.down") ||
+				kb.matches(data, "tui.select.pageUp") ||
+				kb.matches(data, "tui.select.pageDown") ||
+				kb.matches(data, "tui.input.submit") ||
 				data === "\n" ||
-				matchesKey(data, "tab")
+				kb.matches(data, "tui.input.tab")
 			) {
 				// Only pass navigation keys to the list, not Enter/Tab (we handle those directly)
 				if (
-					matchesKey(data, "up") ||
-					matchesKey(data, "down") ||
-					matchesKey(data, "pageUp") ||
-					matchesKey(data, "pageDown")
+					kb.matches(data, "tui.select.up") ||
+					kb.matches(data, "tui.select.down") ||
+					kb.matches(data, "tui.select.pageUp") ||
+					kb.matches(data, "tui.select.pageDown")
 				) {
 					this.#autocompleteList.handleInput(data);
 					this.onAutocompleteUpdate?.();
@@ -769,7 +965,7 @@ export class Editor implements Component, Focusable {
 				}
 
 				// If Tab was pressed, always apply the selection
-				if (matchesKey(data, "tab")) {
+				if (kb.matches(data, "tui.input.tab")) {
 					const selected = this.#autocompleteList.getSelectedItem();
 					if (selected && this.#autocompleteProvider) {
 						const shouldChainSlashCommandAutocomplete = this.#isSlashCommandNameAutocompleteSelection();
@@ -801,10 +997,7 @@ export class Editor implements Component, Focusable {
 				}
 
 				// If Enter was pressed on a slash command, apply completion and submit
-				if (
-					(matchesKey(data, "enter") || matchesKey(data, "return") || data === "\n") &&
-					this.#autocompletePrefix.startsWith("/")
-				) {
+				if ((kb.matches(data, "tui.input.submit") || data === "\n") && this.#autocompletePrefix.startsWith("/")) {
 					// Check for stale autocomplete state due to debounce
 					const currentLine = this.#state.lines[this.#state.cursorLine] ?? "";
 					const currentTextBeforeCursor = currentLine.slice(0, this.#state.cursorCol);
@@ -832,7 +1025,7 @@ export class Editor implements Component, Focusable {
 					// Don't return - fall through to submission logic
 				}
 				// If Enter was pressed on a file path, apply completion
-				else if (matchesKey(data, "enter") || matchesKey(data, "return") || data === "\n") {
+				else if (kb.matches(data, "tui.input.submit") || data === "\n") {
 					const selected = this.#autocompleteList.getSelectedItem();
 					if (selected && this.#autocompleteProvider) {
 						const result = this.#autocompleteProvider.applyCompletion(
@@ -863,7 +1056,7 @@ export class Editor implements Component, Focusable {
 		}
 
 		// Tab key - context-aware completion (but not when already autocompleting)
-		if (matchesKey(data, "tab") && !this.#autocompleteState) {
+		if (kb.matches(data, "tui.input.tab") && !this.#autocompleteState) {
 			this.#handleTabCompletion();
 			return;
 		}
@@ -920,7 +1113,7 @@ export class Editor implements Component, Focusable {
 			data === "\x1b[27;5;13~" || // Ctrl+Enter (legacy format)
 			data === "\x1b\r" || // Option+Enter in some terminals (legacy)
 			data === "\x1b[13;2~" || // Shift+Enter in some terminals (legacy format)
-			matchesKey(data, "shift+enter") || // Shift+Enter (Kitty protocol, handles lock bits)
+			kb.matches(data, "tui.input.newLine") || // Shift+Enter (Kitty protocol, handles lock bits)
 			(data.length > 1 && data.includes("\x1b") && data.includes("\r")) ||
 			(data === "\n" && data.length === 1) // Shift+Enter from iTerm2 mapping
 		) {
@@ -932,7 +1125,7 @@ export class Editor implements Component, Focusable {
 			this.#addNewLine();
 		}
 		// Plain Enter - submit (handles both legacy \r and Kitty protocol with lock bits)
-		else if (matchesKey(data, "enter") || matchesKey(data, "return") || data === "\n") {
+		else if (kb.matches(data, "tui.input.submit") || data === "\n") {
 			// If submit is disabled, do nothing
 			if (this.disableSubmit) {
 				return;
@@ -941,17 +1134,17 @@ export class Editor implements Component, Focusable {
 			this.#submitValue();
 		}
 		// Backspace (including Shift+Backspace)
-		else if (matchesKey(data, "backspace") || matchesKey(data, "shift+backspace")) {
+		else if (kb.matches(data, "tui.editor.deleteCharBackward") || matchesKey(data, "shift+backspace")) {
 			this.#handleBackspace();
 		}
 		// Line navigation shortcuts (Home/End keys)
-		else if (matchesKey(data, "home")) {
+		else if (kb.matches(data, "tui.editor.cursorLineStart")) {
 			this.#moveToLineStart();
-		} else if (matchesKey(data, "end")) {
+		} else if (kb.matches(data, "tui.editor.cursorLineEnd")) {
 			this.#moveToLineEnd();
 		}
 		// Page navigation (PageUp/PageDown)
-		else if (matchesKey(data, "pageUp")) {
+		else if (kb.matches(data, "tui.editor.pageUp")) {
 			if (this.#isEditorEmpty()) {
 				this.#navigateHistory(-1);
 			} else if (this.#historyIndex > -1 && this.#isOnFirstVisualLine()) {
@@ -959,7 +1152,7 @@ export class Editor implements Component, Focusable {
 			} else {
 				this.#pageScroll(-1);
 			}
-		} else if (matchesKey(data, "pageDown")) {
+		} else if (kb.matches(data, "tui.editor.pageDown")) {
 			if (this.#historyIndex > -1 && this.#isOnLastVisualLine()) {
 				this.#navigateHistory(1);
 			} else {
@@ -967,21 +1160,21 @@ export class Editor implements Component, Focusable {
 			}
 		}
 		// Forward delete (Fn+Backspace or Delete key, including Shift+Delete)
-		else if (matchesKey(data, "delete") || matchesKey(data, "shift+delete")) {
+		else if (kb.matches(data, "tui.editor.deleteCharForward") || matchesKey(data, "shift+delete")) {
 			this.#handleForwardDelete();
 		}
 		// Word navigation (Option/Alt + Arrow or Ctrl + Arrow)
-		else if (matchesKey(data, "alt+left") || matchesKey(data, "ctrl+left")) {
+		else if (kb.matches(data, "tui.editor.cursorWordLeft")) {
 			// Word left
 			this.#resetKillSequence();
 			this.#moveWordBackwards();
-		} else if (matchesKey(data, "alt+right") || matchesKey(data, "ctrl+right")) {
+		} else if (kb.matches(data, "tui.editor.cursorWordRight")) {
 			// Word right
 			this.#resetKillSequence();
 			this.#moveWordForwards();
 		}
 		// Arrow keys
-		else if (matchesKey(data, "up")) {
+		else if (kb.matches(data, "tui.editor.cursorUp")) {
 			// Up - history navigation or cursor movement
 			if (this.#isEditorEmpty()) {
 				this.#navigateHistory(-1); // Start browsing history
@@ -993,7 +1186,7 @@ export class Editor implements Component, Focusable {
 			} else {
 				this.#moveCursor(-1, 0); // Cursor movement (within text or history entry)
 			}
-		} else if (matchesKey(data, "down")) {
+		} else if (kb.matches(data, "tui.editor.cursorDown")) {
 			// Down - history navigation or cursor movement
 			if (this.#historyIndex > -1 && this.#isOnLastVisualLine()) {
 				this.#navigateHistory(1); // Navigate to newer history entry or clear
@@ -1003,10 +1196,10 @@ export class Editor implements Component, Focusable {
 			} else {
 				this.#moveCursor(1, 0); // Cursor movement (within text or history entry)
 			}
-		} else if (matchesKey(data, "right")) {
+		} else if (kb.matches(data, "tui.editor.cursorRight")) {
 			// Right
 			this.#moveCursor(0, 1);
-		} else if (matchesKey(data, "left")) {
+		} else if (kb.matches(data, "tui.editor.cursorLeft")) {
 			// Left
 			this.#moveCursor(0, -1);
 		}
@@ -1015,9 +1208,9 @@ export class Editor implements Component, Focusable {
 			this.#insertCharacter(" ");
 		}
 		// Character jump mode triggers
-		else if (kb.matches(data, "jumpForward")) {
+		else if (kb.matches(data, "tui.editor.jumpForward")) {
 			this.#jumpMode = "forward";
-		} else if (kb.matches(data, "jumpBackward")) {
+		} else if (kb.matches(data, "tui.editor.jumpBackward")) {
 			this.#jumpMode = "backward";
 		}
 		// Printable keystrokes, including Kitty CSI-u text-producing sequences.
@@ -1393,10 +1586,10 @@ export class Editor implements Component, Focusable {
 		}
 	}
 
-	#shouldSubmitOnBackslashEnter(data: string, kb: EditorKeybindingsManager): boolean {
+	#shouldSubmitOnBackslashEnter(data: string, kb: KeybindingsManager): boolean {
 		if (this.disableSubmit) return false;
 		if (!matchesKey(data, "enter")) return false;
-		const submitKeys = kb.getKeys("submit");
+		const submitKeys = kb.getKeys("tui.input.submit");
 		const hasShiftEnter = submitKeys.includes("shift+enter") || submitKeys.includes("shift+return");
 		if (!hasShiftEnter) return false;
 
@@ -2184,17 +2377,23 @@ export class Editor implements Component, Focusable {
 
 		if (suggestions && suggestions.items.length > 0) {
 			this.#autocompletePrefix = suggestions.prefix;
-			this.#autocompleteList = new SelectList(
-				suggestions.items,
-				this.#autocompleteMaxVisible,
-				this.#theme.selectList,
-			);
+			this.#autocompleteList = this.#createAutocompleteList(suggestions.prefix, suggestions.items);
 			this.#autocompleteState = "regular";
 			this.onAutocompleteUpdate?.();
 		} else {
 			this.#cancelAutocomplete();
 			this.onAutocompleteUpdate?.();
 		}
+	}
+	#createAutocompleteList(
+		prefix: string,
+		items: Array<{ value: string; label: string; description?: string }>,
+	): SelectList {
+		// Layout options prepared for future SelectList enhancements (e.g., for slash commands)
+		const layout = prefix.startsWith("/") ? SLASH_COMMAND_SELECT_LIST_LAYOUT : undefined;
+		// TODO: Pass layout to SelectList when constructor is updated to support it
+		void layout; // Use layout variable to avoid lint warnings
+		return new SelectList(items, this.#autocompleteMaxVisible, this.#theme.selectList);
 	}
 
 	#handleTabCompletion(): void {
@@ -2263,11 +2462,7 @@ https://github.com/EsotericSoftware/spine-runtimes/actions/runs/19536643416/job/
 			}
 
 			this.#autocompletePrefix = suggestions.prefix;
-			this.#autocompleteList = new SelectList(
-				suggestions.items,
-				this.#autocompleteMaxVisible,
-				this.#theme.selectList,
-			);
+			this.#autocompleteList = this.#createAutocompleteList(suggestions.prefix, suggestions.items);
 			this.#autocompleteState = "force";
 			this.onAutocompleteUpdate?.();
 		} else {
@@ -2313,11 +2508,7 @@ https://github.com/EsotericSoftware/spine-runtimes/actions/runs/19536643416/job/
 		if (suggestions && suggestions.items.length > 0) {
 			this.#autocompletePrefix = suggestions.prefix;
 			// Always create new SelectList to ensure update
-			this.#autocompleteList = new SelectList(
-				suggestions.items,
-				this.#autocompleteMaxVisible,
-				this.#theme.selectList,
-			);
+			this.#autocompleteList = this.#createAutocompleteList(suggestions.prefix, suggestions.items);
 			this.onAutocompleteUpdate?.();
 		} else {
 			this.#cancelAutocomplete();

@@ -1,13 +1,14 @@
+import type { AppKeybinding, KeybindingsManager } from "../../config/keybindings";
+
 export interface HotkeysMarkdownBindings {
-	expandToolsKey: string;
-	planModeKey: string;
-	sttKey: string;
-	copyLineKey: string;
-	copyPromptKey: string;
+	keybindings: Pick<KeybindingsManager, "getDisplayString">;
+}
+
+function appKey(bindings: HotkeysMarkdownBindings, action: AppKeybinding): string {
+	return bindings.keybindings.getDisplayString(action) || "Disabled";
 }
 
 export function buildHotkeysMarkdown(bindings: HotkeysMarkdownBindings): string {
-	const { expandToolsKey, planModeKey, sttKey, copyLineKey, copyPromptKey } = bindings;
 	return [
 		"**Navigation**",
 		"| Key | Action |",
@@ -25,28 +26,29 @@ export function buildHotkeysMarkdown(bindings: HotkeysMarkdownBindings): string 
 		"| `Ctrl+W` / `Option+Backspace` | Delete word backwards |",
 		"| `Ctrl+U` | Delete to start of line |",
 		"| `Ctrl+K` | Delete to end of line |",
-		`| \`${copyLineKey}\` | Copy current line |`,
-		`| \`${copyPromptKey}\` | Copy whole prompt |`,
+		`| \`${appKey(bindings, "app.clipboard.copyLine")}\` | Copy current line |`,
+		`| \`${appKey(bindings, "app.clipboard.copyPrompt")}\` | Copy whole prompt |`,
 		"",
 		"**Other**",
 		"| Key | Action |",
 		"|-----|--------|",
 		"| `Tab` | Path completion / accept autocomplete |",
-		"| `Escape` | Cancel autocomplete / abort streaming |",
-		"| `Ctrl+C` | Clear editor (first) / exit (second) |",
-		"| `Ctrl+D` | Exit (when editor is empty) |",
-		"| `Ctrl+Z` | Suspend to background |",
-		"| `Shift+Tab` | Cycle thinking level |",
-		"| `Ctrl+P` | Cycle role models (slow/default/smol) |",
-		"| `Shift+Ctrl+P` | Cycle role models (temporary) |",
-		"| `Alt+P` | Select model (temporary) |",
-		"| `Ctrl+L` | Select model (set roles) |",
-		`| \`${planModeKey}\` | Toggle plan mode |`,
-		"| `Ctrl+R` | Search prompt history |",
-		`| \`${expandToolsKey}\` | Toggle tool output expansion |`,
-		"| `Ctrl+T` | Toggle todo list expansion |",
-		"| `Ctrl+G` | Edit message in external editor |",
-		`| \`${sttKey}\` | Toggle speech-to-text recording |`,
+		`| \`${appKey(bindings, "app.interrupt")}\` | Cancel autocomplete / interrupt active work |`,
+		`| \`${appKey(bindings, "app.clear")}\` | Clear editor (first) / exit (second) |`,
+		`| \`${appKey(bindings, "app.exit")}\` | Exit (when editor is empty) |`,
+		`| \`${appKey(bindings, "app.suspend")}\` | Suspend to background |`,
+		`| \`${appKey(bindings, "app.thinking.cycle")}\` | Cycle thinking level |`,
+		`| \`${appKey(bindings, "app.model.cycleForward")}\` | Cycle role models (slow/default/smol) |`,
+		`| \`${appKey(bindings, "app.model.cycleBackward")}\` | Cycle role models (temporary) |`,
+		`| \`${appKey(bindings, "app.model.selectTemporary")}\` | Select model (temporary) |`,
+		`| \`${appKey(bindings, "app.model.select")}\` | Select model (set roles) |`,
+		`| \`${appKey(bindings, "app.plan.toggle")}\` | Toggle plan mode |`,
+		`| \`${appKey(bindings, "app.history.search")}\` | Search prompt history |`,
+		`| \`${appKey(bindings, "app.tools.expand")}\` | Toggle tool output expansion |`,
+		`| \`${appKey(bindings, "app.thinking.toggle")}\` | Toggle thinking block visibility |`,
+		`| \`${appKey(bindings, "app.editor.external")}\` | Edit message in external editor |`,
+		`| \`${appKey(bindings, "app.clipboard.pasteImage")}\` | Paste image from clipboard |`,
+		`| \`${appKey(bindings, "app.stt.toggle")}\` | Toggle speech-to-text recording |`,
 		"| `#` | Open prompt actions |",
 		"| `/` | Slash commands |",
 		"| `!` | Run bash command |",

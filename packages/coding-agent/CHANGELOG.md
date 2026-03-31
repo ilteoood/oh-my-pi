@@ -2,7 +2,301 @@
 
 ## [Unreleased]
 
+## [13.17.0] - 2026-03-30
+
+### Added
+
+- Added `marketplace.autoUpdate` setting (`off`/`notify`/`auto`, default `notify`) for automatic plugin update checking on startup
+- Added background marketplace catalog refresh on startup when catalogs are stale (>24h)
+- Added `/marketplace upgrade [name@marketplace]` slash command to upgrade outdated plugins
+- Added `omp plugin upgrade [name@marketplace]` CLI command for plugin upgrades
+- Added `checkForUpdates()`, `upgradePlugin()`, `upgradeAllPlugins()`, and `refreshStaleMarketplaces()` to MarketplaceManager
+- Added marketplace plugin system: registry types, ID helpers, atomic read/write for `marketplaces.json` and `installed_plugins.json` (Claude Code-compatible format)
+- Added `MarketplaceManager` orchestrator for marketplace and plugin lifecycle (add/remove/update marketplaces, install/uninstall/enable plugins)
+- Added marketplace fetcher with source classification (GitHub, git, URL, local) and catalog validation
+- Added plugin source resolver with `pathIsWithin` containment checks and versioned cache manager
+- Added CLI commands: `omp plugin marketplace add|remove|update|list`, `omp plugin discover [marketplace]`
+- Added `classifyInstallTarget()` to distinguish `name@marketplace` from npm install targets
+- Extended `listClaudePluginRoots()` to read OMP's installed plugins registry alongside Claude Code's, with OMP as authoritative for duplicate plugin IDs
+- Added `--plugin-dir <path>` repeatable CLI flag for loading plugins from local directories
+- Added `/reload-plugins` slash command that invalidates fs content cache and plugin roots cache
+- Added `printPluginHelp()` entries for marketplace and discover commands
+- Added MCP server loading from marketplace plugin `.mcp.json` files with `${CLAUDE_PLUGIN_ROOT}` variable substitution
+- Added skill and command namespacing for marketplace plugins (`plugin-name:skill-name`)
+- Added LSP config loading from marketplace plugin roots via `getPreloadedPluginRoots()`
+- Wired `--plugin-dir` runtime injection into plugin roots at session startup with highest precedence
+- Added git (GitHub, SSH, HTTPS) and HTTP URL marketplace source fetching
+- Added `/marketplace` TUI slash command with subcommands: add, remove, update, list, discover, install, uninstall, installed
+- Added `/plugins` TUI slash command to view all installed plugins (npm + marketplace) and enable/disable marketplace plugins
+
+### Changed
+
+- Changed marketplace clone promotion to occur after duplicate and drift checks, improving safety of concurrent marketplace operations
+
+### Removed
+
+- Removed grep.app code search provider support; code search now uses Exa exclusively
+- Removed `providers.codeSearch` setting and related configuration options
+
+### Fixed
+
+- Fixed git-subdir plugin source resolution to properly clean up temporary clone directories on path validation errors
+- Fixed LSP config loading to use correct filenames variable when scanning plugin roots
+- Fixed plugin selector UI to request render on cancel, preventing stale display state
+- Fixed marketplace install command error handling to display user-friendly error messages instead of crashing
+- Fixed MCP tools from newly added servers not being activated after `/mcp add` — `refreshMCPTools` preserves prior MCP tool selections, so brand-new servers had their tools registered in the registry but never passed to the agent; tools are now explicitly activated on successful connection
+- Fixed `skill://` URI resolver to handle namespaced skills via longest-prefix matching against registered skill names
+
+## [13.16.5] - 2026-03-29
+
+### Fixed
+
+- Fixed `--model provider/id` resolving to wrong provider when model ID exists in multiple catalogs ([#560](https://github.com/can1357/oh-my-pi/issues/560))
+
+## [13.16.4] - 2026-03-28
+### Changed
+
+- Renamed hashline helper functions from `hlineref`/`hlinefull` to `href`/`hline` for brevity
+- Simplified hashline edit location API: replaced separate `line` and `block` properties with unified `range` property accepting `{ pos, end }` for all range-based edits
+- Updated hashline prompt documentation to reflect new `range` syntax and clarified editing guidelines
+
+### Fixed
+
+- Added detection for `kysely-codegen` generated files in auto-generated file guard
+
+## [13.16.1] - 2026-03-27
+
+### Added
+
+- Added `searchDb` parameter to `PromptActionAutocompleteProvider` constructor for native search database integration in autocomplete workflows
+- Added `searchDb` parameter to enable native search database integration for grep and find operations
+- Exported `SearchDb` type from tools module for type-safe search database usage
+
+### Changed
+
+- Updated grep tool to accept and utilize `searchDb` parameter for improved search performance
+- Updated find tool to pass `searchDb` parameter to underlying search operations
+- Updated grep tool description to remove ripgrep-specific implementation detail
+
+## [13.16.0] - 2026-03-27
+
+### Added
+
+- Implemented root path alias: bare `/` in tool inputs now resolves to the session working directory instead of the filesystem root
+- Added `browser.screenshotDir` setting to configure screenshot save directory with path expansion
+
+### Changed
+
+- Improved hashline tool documentation with clearer guidance on block boundary handling and closing delimiter duplication prevention
+- Updated screenshot path resolution to use `resolveToCwd` for consistent workspace-relative path handling
+- Updated hook editor hint text to include `ctrl+g external editor` option when using prompt style
+- Refactored question result formatting to consistently include question ID in output
+
+## [13.15.3] - 2026-03-26
+
+### Added
+
+- Added configurable `app.model.selectTemporary` keybinding for temporary model selection.
+
+## [13.15.0] - 2026-03-23
+
+### Breaking Changes
+
+- Changed hashline edit schema from flat `op`/`pos`/`end`/`lines` fields to structured `loc`/`content` format with location-specific objects
+- Renamed hashline edit operations: `replace_line` → `{ line: anchor }`, `replace_range` → `{ block: { pos, end } }`, `append_at` → `{ append: anchor }`, `prepend_at` → `{ prepend: anchor }`, `append_file` → `"append"`, `prepend_file` → `"prepend"`
+- Changed `lines` parameter to `content` in hashline edit entries
+- Renamed hashline edit operation types: `append` → `append_at`, `prepend` → `prepend_at`, `append_eof` → `append_file`, `prepend_bof` → `prepend_file`
+- Changed hashline edit operation types from `replace` (with optional `end`) to explicit `replace_line` and `replace_range` operations
+- Added required `append_eof` and `prepend_bof` operations for file-level edits; `append` and `prepend` now require an anchor position
+- Made `pos` parameter required for `replace_line`, `append`, and `prepend` operations; `append_eof` and `prepend_bof` no longer accept anchors
+
+### Added
+
+- Added custom model roles/tags via config YAML
+- Added ability to reorder model role/tag cycling via config YAML
+- Added prompt for tradeoff metrics during autoresearch setup to collect secondary metrics alongside primary metric
+- Added validation of contract path specifications to reject absolute paths and parent directory references
+- Added stricter benchmark command validation in `isAutoresearchShCommand()` to reject chained commands, pipes, and redirects
+- Added protection against prototype pollution in ASI data and metric cloning by filtering `__proto__`, `constructor`, and `prototype` keys
+- Added `autoResumeArmed` flag to track when autoresearch should automatically resume pending runs
+- Added `lastAutoResumePendingRunNumber` to prevent duplicate auto-resume prompts for the same pending run
+- Added `git clean -X` invocation during failed experiment rollback to remove ignored build artifacts
+- Added validation to reject `init_experiment` when a previous run is still pending and unlogged
+- Added autoresearch contract system for validating benchmark commands, metrics, scope paths, off-limits paths, and constraints with fingerprint tracking to detect configuration drift
+- Added `autoresearch.program.md` support for repo-local playbook overlays that guide session strategy while preserving `autoresearch.md` as source of truth
+- Added pending run artifact tracking and recovery to resume incomplete experiments from `.autoresearch/runs/` directory with run numbers and benchmark logs
+- Added run directory organization with numbered run artifacts, benchmark logs, and optional checks logs for experiment traceability
+- Added segment fingerprinting to detect when benchmark configuration changes between runs and warn about potential incomparability
+- Added support for secondary metrics tracking alongside primary metric with configurable direction (lower/higher is better)
+- Added `getCurrentAutoresearchBranch()` helper to detect and validate existing autoresearch branches for session resumption
+- Added `PendingRunSummary` type to track unlogged run state including parsed metrics, ASI data, and pass/fail status
+- Added hidden next-turn message delivery via `deliverAs: 'nextTurn'` with optional `triggerTurn` to queue context for next LLM call without exposing in editable queue
+- Added `#queueHiddenNextTurnMessage()` and `#promptQueuedHiddenNextTurnMessages()` to AgentSession for autonomous tool reactions
+- Added resume context support in `command-resume.md` template for user-provided guidance when resuming sessions
+- Added current segment snapshot display in autoresearch prompt showing recent runs, baseline metrics, and best results
+- Added pending run indicator in autoresearch prompt to guide users to complete unlogged experiments before starting new benchmarks
+- Added local playbook section in autoresearch prompt when `autoresearch.program.md` exists
+- Added tab replacement in dashboard and tool output rendering to prevent display corruption from shell commands with tabs
+- Added boundary duplication warning when replace_range or replace_line operations include a last inserted line that matches the next surviving line, helping detect off-by-one range errors
+- Added git branch isolation for autoresearch sessions via `ensureAutoresearchBranch()` to safely revert failed experiments
+- Added branch status line to autoresearch initialization and resume prompts showing created or reused branch name
+- Added `Files in Scope`, `Off Limits`, and `Constraints` sections to autoresearch.md template for explicit scope definition
+- Added validation of ASI metadata requirements in `log_experiment` tool, requiring hypothesis for all runs and rollback context for failed runs
+- Added keybinding matcher utilities `matchesAppInterrupt()` and `matchesSelectCancel()` for consistent escape key handling across components
+- Added support for customizable `app.interrupt` and `tui.select.cancel` keybindings in interactive components
+- Added `defaultInactive` property to `ToolDefinition` to allow tools to be registered but excluded from the initial active set, with extension responsibility for activation/deactivation
+- Added dynamic tool activation/deactivation in autoresearch mode via `setActiveTools()` API
+- Added separate initialization and resume workflows for autoresearch with `command-initialize.md` and `command-resume.md` prompts
+- Added intent dialog to prompt users for autoresearch optimization goals when starting fresh
+- Added automatic detection of existing `autoresearch.md` to resume from previous sessions without re-prompting for intent
+- Added autoresearch extension with autonomous experiment loop capabilities
+- Added `init_experiment` tool to initialize and reset autoresearch sessions with configurable metrics
+- Added `log_experiment` tool to record experiment results with metric parsing and confidence tracking
+- Added `run_experiment` tool to execute commands and capture metrics with timeout and crash detection
+- Added autoresearch dashboard controller for displaying experiment results and optimization progress
+- Added support for secondary metrics tracking alongside primary metric
+- Added `ExtensionWidgetContent` and `ExtensionUiComponentFactory` types for flexible widget configuration
+- Added `ExtensionWidgetOptions` interface with `placement` parameter to position widgets above or below editor
+- Added `WidgetPlacement` type supporting 'aboveEditor' and 'belowEditor' placement options
+- Added `hookWidgetContainerAbove` and `hookWidgetContainerBelow` containers to InteractiveMode for separate widget management
+- Added autoresearch mode for autonomous experiment loops with init_experiment, log_experiment, and run_experiment tools
+- Added autoresearch dashboard widget displaying experiment results, metrics, and optimization progress
+- Added support for metric tracking with configurable direction (lower/higher is better) and secondary metrics
+- Added widget placement options to position extensions above or below the editor via `placement` parameter
+- Added `ExtensionWidgetContent` and `ExtensionWidgetOptions` types for flexible widget configuration
+- Added ACP (Agent Client Protocol) mode for headless agent operation via `--mode acp`
+- Added support for Agent Client Protocol SDK integration with session management, MCP server configuration, and streaming communication
+- Added `ensureOnDisk()` method to SessionManager to persist sessions immediately for ACP discovery
+- Added multiline custom input for `ask` custom answers, using the prompt-style editor without inactivity timeout while composing ([#506](https://github.com/can1357/oh-my-pi/issues/506))
+
+### Changed
+
+- Changed autoresearch initialization to collect and validate benchmark command, metric definition, scope paths, off-limits list, and constraints before `init_experiment`
+- Changed `init_experiment` to require exact benchmark command, metric definition, scope, off-limits, and constraints matching collected contract
+- Changed `log_experiment` to record run number, benchmark command, scope paths, off-limits list, constraints, and segment fingerprint with each result
+- Changed `run_experiment` to organize output in numbered run directories with separate benchmark and checks logs for artifact preservation
+- Changed autoresearch dashboard to show pending run indicator when unlogged experiment exists
+- Changed autoresearch resume workflow to detect and offer recovery of pending run artifacts before continuing experiment loop
+- Changed `ExperimentResult` to include `runNumber`, `benchmarkCommand`, `scopePaths`, `offLimits`, `constraints`, and `segmentFingerprint` fields
+- Changed `RunningExperiment` to track `runDirectory` and `runNumber` for artifact organization
+- Changed `AutoresearchRuntime` to include `lastRunArtifactDir`, `lastRunNumber`, `lastRunSummary`, `benchmarkCommand`, `secondaryMetrics`, `scopePaths`, `offLimits`, `constraints`, and `segmentFingerprint`
+- Changed autoresearch prompts to emphasize `autoresearch.md` as source of truth for benchmark, scope, and constraints
+- Changed `command-initialize.md` to display collected setup (benchmark command, metric, direction, scope, off-limits, constraints) before initialization
+- Changed `resume-message.md` to reference pending run artifacts and guide completion of unlogged experiments
+- Changed `sendMessage()` API documentation to clarify `deliverAs: 'nextTurn'` behavior for hidden context delivery
+- Changed `SendMessageHandler` type documentation to explain hidden next-turn message queuing during prompt teardown
+- Changed autoresearch startup to create or reuse a dedicated `autoresearch/...` git branch before enabling the experiment loop
+- Changed autoresearch to refuse startup when unrelated worktree changes would make auto-reverts unsafe
+- Changed autoresearch prompts to emphasize scope and constraints as source of truth for session direction
+- Changed component escape key handling to use keybinding manager for `app.interrupt` and `tui.select.cancel` with fallback to raw Escape matching
+- Updated autoresearch prompt guidance to require explicit files in scope, off-limits paths, and session constraints
+- Changed autoresearch command to use intent-based initialization instead of goal parameter, with user input dialog for new sessions
+- Changed autoresearch startup to create or reuse a dedicated `autoresearch/...` git branch before enabling the experiment loop, and to refuse startup when unrelated worktree changes would make auto-reverts unsafe
+- Changed autoresearch startup to activate experiment tools (`init_experiment`, `run_experiment`, `log_experiment`) only when autoresearch mode is enabled
+- Changed autoresearch shutdown to deactivate experiment tools when mode is disabled or cleared
+- Changed autoresearch session rehydration to dynamically manage experiment tool activation based on session state
+- Changed autoresearch prompts and notes guidance to require explicit files in scope, off-limits paths, and session constraints
+- Refactored hashline edit validation to enforce stricter anchor requirements per operation type
+- Updated edit application logic to handle explicit file-level operations (`append_eof`, `prepend_bof`) separately from anchor-based operations
+- Changed `setWidget` API to accept `ExtensionWidgetOptions` parameter for placement control
+- Changed widget placement logic to manage widgets above and below editor separately
+- Changed hashline edit application to preserve duplicated boundary lines exactly as provided instead of auto-correcting them
+- Updated RPC mode to support widget placement option in `setWidget` requests
+- Changed hashline edit application to preserve duplicated boundary lines exactly as provided instead of auto-correcting them
+- Changed widget API to support placement options and component factories in addition to string arrays
+- Updated extension UI controller to manage widgets above and below the editor separately
+- Updated ask tool rendering to support markdown formatting in questions and option labels
+- Refactored hook input and selector components to render titles as markdown for richer text formatting
+- Changed session collection to include sessions with zero messages, enabling ACP mode to create discoverable sessions immediately
+- Changed session persistence logic to use atomic file rewrite when flushing unflushed sessions to prevent duplication
+- Removed hashline edit autocorrection for duplicated boundary lines; escaped-tab autocorrection remains available for leading `\\t` sequences
+
+### Removed
+
+- Removed `command-start.md` prompt template in favor of separate initialize and resume workflows
+- Removed auto-correction of off-by-one range edits that duplicated closing braces or boundary lines
+- Removed `shouldAutocorrect` function and related boundary line deduplication logic from hashline editor
+- Removed auto-correction of off-by-one range edits that duplicated closing braces or boundary lines
+
+### Fixed
+
+- Fixed autoresearch resume to detect and recover pending run artifacts that were left unlogged from previous sessions
+- Fixed dashboard overlay to display when running experiment even with zero completed results
+- Fixed tab character rendering in dashboard command display and tool output summaries
+- Fixed autoresearch logging to require durable ASI metadata (hypothesis, rollback_reason, next_action_hint) for every run including rollback context for discarded, crashed, and checks-failed experiments
+- Fixed autoresearch logging to require durable ASI metadata for every run, including rollback context for discarded, crashed, and checks-failed experiments
+
+### Fixed
+
+- Fixed resumed and session-switched GitHub Copilot/OpenAI Responses conversations replaying stale assistant native history from older saved sessions by sanitizing persisted assistant replay metadata on rehydration and resetting provider session state across live session boundaries ([#505](https://github.com/can1357/oh-my-pi/issues/505))
+
+## [13.14.0] - 2026-03-20
+
+### Added
+
+- Auto-reconnect MCP servers on connection loss with proactive SSE stream monitoring and retry backoff
+- Tool-level reconnect: retriable connection errors (ECONNREFUSED, ECONNRESET, stale session 404/502/503) trigger automatic reconnection and single retry
+- `/mcp reconnect <name>` command for manual server recovery after extended outages
+
+### Changed
+
+- Extended transport reconnect handling to all transport types (not just HTTP/SSE), ensuring stdio and other transports trigger automatic reconnection on connection loss
+- Improved reconnect robustness by aborting retry attempts when MCP server configuration changes during reconnection sequence
+- Updated explore agent thinking level from off to med for improved reasoning
+- Simplified explore agent output schema: consolidated file references into single `ref` field with optional line ranges instead of separate `path`, `line_start`, `line_end` fields
+- Removed `code` section from explore agent output (critical code excerpts no longer extracted)
+- Removed `dependencies` section from explore agent output
+- Removed `risks` section from explore agent output
+- Removed `start_here` section from explore agent output
+
+### Fixed
+
+- Fixed reconnect retry loop continuing after configuration changes by checking epoch before each reconnection attempt
+- `roots/list` timeout on MCP server initialization: `connectToServer` now always installs a default handler for `ping` and `roots/list`
+- Fixed resumed GitHub Copilot conversations that could fail with `401 input item does not belong to this connection` on the first follow-up after process restart ([#488](https://github.com/can1357/oh-my-pi/issues/488))
+- Fixed STT Alt+H mic cursor rendering to measure the actual microphone glyph width, preventing one-column TUI overflow crashes when the active symbol preset uses a wide icon ([#484](https://github.com/can1357/oh-my-pi/issues/484))
+
+## [13.13.2] - 2026-03-18
+
+### Added
+
+- Added automatic stripping of hashline display prefixes (LINE#ID:) from write tool content when hashline edit mode is enabled, preventing the model from accidentally copying display markers into files
+- Added `mcpServerName` and `mcpToolName` optional properties to custom tools for MCP server discovery and search metadata
+
+## [13.13.1] - 2026-03-18
+
+### Added
+
+- Automatic deduplication of identical context files by content, keeping the closest (lowest depth) copy when duplicates are discovered
+
+## [13.13.0] - 2026-03-18
+
+### Added
+
+- Added `edit.blockAutoGenerated` setting to control whether auto-generated file detection is enforced (enabled by default)
+- Improved auto-generated file detection to use language-specific comment parsing instead of broad regex patterns, reducing false positives
+- Added auto-generated file detection to prevent accidental modification of generated code (protoc, sqlc, buf, swagger, etc.)
+- Added validation in Edit and Write tools to block modifications to files with auto-generated markers or naming patterns
+
+### Changed
+
+- Enhanced auto-generated marker detection to only scan leading header comments rather than entire file prefix, improving accuracy for files with generated markers in code
+
+## [13.12.10] - 2026-03-17
+
+### Added
+
+- Added `args` field to ShellResult to capture the executed command
+- Added `exit_code` property to ShellResult as an alias for `returncode`
+- Added `check_returncode()` method to ShellResult to raise CalledProcessError on non-zero exit codes
+
+### Changed
+
+- Renamed `code` field to `returncode` in ShellResult (accessible via `code` property for backward compatibility)
+- Updated `run()` command documentation to clarify available ShellResult fields
+
 ## [13.12.9] - 2026-03-17
+
 ### Added
 
 - Added `/session delete` command to delete current session with confirmation and return to session selector
@@ -47,6 +341,7 @@
 - Fixed session directory resolution to correctly handle symlink-equivalent paths, ensuring aliased home and temp directories resolve to the same session storage location as their real targets
 
 ## [13.12.7] - 2026-03-16
+
 ### Changed
 
 - Modified `getSelectedMCPToolNames()` to return only active MCP tools in non-discovery sessions, filtering by tool registry availability
@@ -58,6 +353,7 @@
 - Fixed MCP tool selection tracking to properly distinguish between discovery-enabled and non-discovery sessions, preventing orphaned tool selections after manual deactivation
 
 ## [13.12.6] - 2026-03-15
+
 ### Changed
 
 - Updated llama.cpp model discovery to read context window from the `/props` endpoint's `default_generation_settings.n_ctx` field instead of using hardcoded 128000 default
@@ -93,6 +389,7 @@
 - Fixed automatic migration of legacy session directories to new `-tmp-` prefixed naming scheme for temp-root sessions
 
 ## [13.12.4] - 2026-03-15
+
 ### Added
 
 - Exposed `settings` instance in `CustomToolContext` for session-specific configuration access
@@ -130,6 +427,7 @@
 - Fixed skill loading to properly respect disabled skill names when loading from custom directories
 
 ## [13.12.1] - 2026-03-15
+
 ### Added
 
 - Support for move-only operations that preserve exact bytes including binary files
@@ -169,7 +467,7 @@
 - Moved LSP settings (lsp.enabled, lsp.formatOnWrite, lsp.diagnosticsOnWrite, lsp.diagnosticsOnEdit) to the Editing tab
 - Moved bash interceptor settings to the Editing tab
 - Moved Python settings (python.toolMode, python.kernelMode, python.sharedGateway) to the Editing tab
-- Moved task delegation settings (task.isolation.*, task.eager, task.maxConcurrency, task.maxRecursionDepth) to the Tasks tab
+- Moved task delegation settings (task.isolation.\*, task.eager, task.maxConcurrency, task.maxRecursionDepth) to the Tasks tab
 - Moved skill and command settings to the Tasks tab
 - Moved provider selection settings (providers.webSearch, providers.codeSearch, providers.image, etc.) to the Providers tab
 - Moved Exa settings to the Providers tab
@@ -225,6 +523,7 @@
 - Fixed line number parsing in compact diff preview to handle variable-width line number fields with leading whitespace
 
 ## [13.11.0] - 2026-03-12
+
 ### Added
 
 - Added Parallel as a web search provider with support for fast and research modes
@@ -267,6 +566,7 @@
 - Per-role `modelRoles` thinking selectors now propagate through commit/title helper model selection, legacy commit analysis, and agentic commit sessions while preserving default thinking inheritance when no role override is configured
 
 ## [13.10.1] - 2026-03-10
+
 ### Added
 
 - Exported `submitInteractiveInput()` function for programmatic submission of user input in interactive mode
@@ -274,15 +574,19 @@
 - Added reactive 401/403 retry with automatic token refresh on HTTP MCP transports
 - Added `refreshMCPOAuthToken()` for standard OAuth 2.0 refresh_token grants
 - Persisted `tokenUrl`, `clientId`, and `clientSecret` in MCP auth config for cross-session token refresh
+
 ### Fixed
+
 - Respected `PI_CONFIG_DIR` when discovering native user config paths for slash commands and related config directories ([#349](https://github.com/can1357/oh-my-pi/issues/349))
 
 ## [13.10.0] - 2026-03-10
+
 ### Fixed
 
 - Preserved text signature metadata (id and phase) when building OpenAI native history during session compaction
 
 ## [13.9.16] - 2026-03-10
+
 ### Breaking Changes
 
 - Web search tool no longer accepts `provider` parameter in tool calls; use internal provider resolution instead
@@ -321,6 +625,7 @@
 - Fixed model selector to show discovery status messages when provider has no models
 
 ## [13.9.15] - 2026-03-10
+
 ### Added
 
 - Added `ensureLoadingAnimation()` method to manage loading animation lifecycle and prevent duplicate spinners
@@ -331,6 +636,7 @@
 - Updated `showError()` to properly clean up loading animation state when errors occur
 
 ## [13.9.12] - 2026-03-09
+
 ### Added
 
 - Added Tavily as a supported web search provider with `TAVILY_API_KEY` credential discovery and provider fallback support
@@ -348,6 +654,7 @@
 - Canonicalized bash executor working directories before handing them to brush so `pwd` stays aligned with canonical Git worktree paths in symlinked workspaces
 
 ## [13.9.10] - 2026-03-08
+
 ### Added
 
 - Added `env` parameter to bash tool to pass environment variables safely without shell re-parsing, preventing quote and special character bugs with multiline or untrusted values
@@ -359,6 +666,7 @@
 - Changed bash tool to display environment variable assignments in command preview when `env` parameter is used
 
 ## [13.9.8] - 2026-03-08
+
 ### Added
 
 - Added docs.rs scraper for extracting Rust crate documentation from rustdoc JSON, including support for modules, functions, structs, traits, enums, and other Rust items with caching
@@ -393,6 +701,7 @@
 - Updated `grep` tool to combine glob patterns from `path` and `glob` parameters instead of throwing an error when both are provided
 
 ## [13.9.4] - 2026-03-07
+
 ### Added
 
 - Automatic detection of Ollama model capabilities including reasoning/thinking support and vision input via the `/api/show` endpoint
@@ -481,6 +790,7 @@
 - Auto-corrected off-by-one range start errors in hashline edits that would duplicate preceding lines
 
 ## [13.9.0] - 2026-03-05
+
 ### Added
 
 - Added `read.defaultLimit` setting to configure default number of lines returned by read tool when no limit is specified (default: 300 lines)
@@ -509,6 +819,7 @@
 - Fixed provider session state not being cleared when branching or navigating tree history, preventing resource leaks with codex provider sessions
 
 ## [13.8.0] - 2026-03-04
+
 ### Added
 
 - Added `buildCompactHashlineDiffPreview()` function to generate compact diff previews for model-visible tool responses, collapsing long unchanged runs and consecutive additions/removals to show edit shape without full file content
@@ -524,6 +835,7 @@
 - Fixed `:thinking` suffix in `modelRoles` config values silently breaking model resolution (e.g., `slow: anthropic/claude-opus-4-6:high`) and being stripped on Ctrl+P role cycling
 
 ## [13.7.6] - 2026-03-04
+
 ### Added
 
 - Exported `dedupeParseErrors` utility function to deduplicate parse error messages while preserving order
@@ -534,7 +846,9 @@
 - Normalized parse error output in ast-grep to remove pattern-specific prefixes and show only file-level errors
 
 ## [13.7.4] - 2026-03-04
+
 ### Added
+
 - Added `fetch.useKagiSummarizer` setting to toggle Kagi Universal Summarizer usage in the fetch tool.
 
 ### Fixed
@@ -554,7 +868,7 @@
 ### Changed
 
 - Updated hashline prompt documentation with clearer operation syntax and improved examples showing full edit structure with path and edits array
-- Refactored `hlineref` Handlebars helper to return JSON-quoted strings for safer embedding in JSON blocks within prompts
+- Refactored `href` Handlebars helper to return JSON-quoted strings for safer embedding in JSON blocks within prompts
 - Improved `hashlineParseText` to correctly preserve blank lines and trailing empty strings in array input while stripping trailing newlines from string input
 - Optimized duplicate line detection in range replacements to use trimmed comparison, reducing false positives from whitespace differences
 - Refactored Kagi search provider to use shared Kagi API utilities from `web/kagi` module
@@ -565,6 +879,7 @@
 - Fixed `isEscapedTabAutocorrectEnabled` environment variable parsing to use switch statement for clearer logic and consistent default behavior
 
 ## [13.7.2] - 2026-03-04
+
 ### Added
 
 - Added support for direct OAuth provider login via `/login <provider>` command (e.g., `/login kagi`)
@@ -581,6 +896,7 @@
 - Fixed `ask` timeout handling to auto-select the recommended option instead of aborting the turn, while preserving explicit user-cancel abort behavior ([#266](https://github.com/can1357/oh-my-pi/issues/266))
 
 ## [13.6.2] - 2026-03-03
+
 ### Fixed
 
 - Fixed LM Studio API key retrieval to use configured provider name instead of hardcoded 'lm-studio'
@@ -595,7 +911,9 @@
 - Fixed `omp update` silently succeeding without actually updating the binary when the update channel (bun global vs compiled binary) doesn't match the installation method ([#247](https://github.com/can1357/oh-my-pi/issues/247))
 - Added post-update verification that checks the resolved `omp` binary reports the expected version, with actionable warnings on mismatch
 - `omp update` now detects when the `omp` in PATH is not managed by bun and falls back to binary replacement instead of updating the wrong location
+
 ## [13.6.0] - 2026-03-03
+
 ### Added
 
 - Added `mcp://` internal URL protocol for reading MCP server resources directly via the read tool (e.g., `read(path="mcp://resource-uri")`)
@@ -626,9 +944,11 @@
 - Fixed URI template matching to correctly handle expressions that expand to empty strings
 
 ## [13.5.6] - 2026-03-01
+
 ### Changed
 
 - Updated OAuth client name from 'oh-my-pi MCP' to 'Codex' for dynamic client registration
+
 ### Fixed
 
 - Fixed exit_plan_mode handler to abort active agent turn before opening plan approval selector, ensuring proper session cleanup
@@ -640,6 +960,7 @@
 - Added Kagi web search provider (Search API v0) with related searches support and automatic `KAGI_API_KEY` detection
 
 ## [13.5.4] - 2026-03-01
+
 ### Added
 
 - Added `authServerUrl` field to `AuthDetectionResult` to capture OAuth server metadata from `Mcp-Auth-Server` headers
@@ -648,6 +969,7 @@
 - Added recursive auth server discovery to follow `authorization_servers` references when discovering OAuth endpoints
 
 - Added `omp agents unpack` CLI subcommand to export bundled subagent definitions to `~/.omp/agent/agents` by default, with `--project` support for `./.omp/agents`
+
 ### Changed
 
 - Enhanced `discoverOAuthEndpoints()` to accept optional `authServerUrl` parameter and query both auth server and resource server for OAuth metadata
@@ -1342,7 +1664,7 @@
 - Updated hashline reference format from `LINE:HASH` to `LINE#ID` throughout the codebase for improved clarity
 - Renamed hashline edit operations: `set_line` → `set`, `replace_lines` → `set_range`, `insert_after` → `insert` with support for `before` and `between` anchors
 - Changed hashline edit `body` field from string to array of strings for clearer multiline handling
-- Updated handlebars helpers: renamed `hashline` to `hlineref` and added `hlinefull` for formatted line output
+- Updated handlebars helpers: renamed `hashline` to `href` and added `hline` for formatted line output
 - Improved insert operation to support `before`, `after`, and `between` (both anchors) positioning modes
 - Made autocorrect heuristics (boundary echo stripping, indent restoration) conditional on `PI_HL_AUTOCORRECT` environment variable
 - Updated SSH host discovery to load from managed omp config paths (.omp/ssh.json and ~/.omp/agent/ssh.json) in addition to legacy root-level ssh.json and .ssh.json files
@@ -1673,7 +1995,6 @@
 
 - Improved error reporting in fetch tool to include HTTP status codes when URL fetching fails
 - Fixed fetch tool to preserve actual response metadata (finalUrl, contentType) instead of defaults when requests fail
-
 
 ## [12.1.0] - 2026-02-13
 
@@ -2189,7 +2510,7 @@
 - New `appendModeChange()` method in SessionManager to record mode transitions
 - New `mode` and `modeData` fields in SessionContext to track active agent mode
 - Support for `PI_PACKAGE_DIR` environment variable to override package directory (useful for Nix/Guix store paths)
-- New keybindings for session management: `toggleSessionNamedFilter` (Ctrl+N), `newSession`, `tree`, `fork`, and `resume` actions
+- New keybindings for session management: `newSession`, `tree`, `fork`, and `resume` actions
 - Support for shell command execution in configuration values (API keys, headers) using `!` prefix, with result caching
 - New `clearOnShrink` display setting to control whether empty rows are cleared when content shrinks
 - New `SlashCommandInfo`, `SlashCommandLocation`, and `SlashCommandSource` types for extension slash command discovery

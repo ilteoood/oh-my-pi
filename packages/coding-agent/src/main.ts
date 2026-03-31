@@ -11,10 +11,12 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { createInterface } from "node:readline/promises";
 import type { ImageContent } from "@oh-my-pi/pi-ai";
-import { $env, getProjectDir, logger, postmortem, setProjectDir, VERSION } from "@oh-my-pi/pi-utils";
+import { $env, getConfigDirName, getProjectDir, logger, postmortem, setProjectDir, VERSION } from "@oh-my-pi/pi-utils";
 import chalk from "chalk";
+import { invalidate as invalidateFsCache } from "./capability/fs";
 import type { Args } from "./cli/args";
 import { processFileArguments } from "./cli/file-processor";
+import { buildInitialMessage } from "./cli/initial-message";
 import { listModels } from "./cli/list-models";
 import { selectSession } from "./cli/session-picker";
 import { findConfigFile } from "./config";
@@ -22,9 +24,18 @@ import { ModelRegistry, ModelsConfigFile } from "./config/model-registry";
 import { resolveCliModel, resolveModelRoleValue, resolveModelScope, type ScopedModel } from "./config/model-resolver";
 import { Settings, settings } from "./config/settings";
 import { initializeWithSettings } from "./discovery";
+import { clearClaudePluginRootsCache, injectPluginDirRoots, preloadPluginRoots } from "./discovery/helpers";
 import { exportFromFile } from "./export/html";
 import type { ExtensionUIContext } from "./extensibility/extensions/types";
-import { InteractiveMode, runPrintMode, runRpcMode } from "./modes";
+import {
+	getInstalledPluginsRegistryPath,
+	getMarketplacesCacheDir,
+	getMarketplacesRegistryPath,
+	getPluginsCacheDir,
+	MarketplaceManager,
+} from "./extensibility/plugins/marketplace";
+import type { MCPManager } from "./mcp";
+import { InteractiveMode, runAcpMode, runPrintMode, runRpcMode } from "./modes";
 import { initTheme, stopThemeWatcher } from "./modes/theme/theme";
 import type { SubmittedUserInput } from "./modes/types";
 import { type CreateAgentSessionOptions, createAgentSession, discoverAuthStorage } from "./sdk";
@@ -34,6 +45,9 @@ import { resolvePromptInput } from "./system-prompt";
 import { getChangelogPath, getNewEntries, parseChangelog } from "./utils/changelog";
 
 async function checkForNewVersion(currentVersion: string): Promise<string | undefined> {
+	if (!settings.get("startup.checkUpdate")) {
+		return;
+	}
 	try {
 		const response = await fetch("https://registry.npmjs.org/@oh-my-pi/pi-coding-agent/latest");
 		if (!response.ok) return undefined;
@@ -41,7 +55,7 @@ async function checkForNewVersion(currentVersion: string): Promise<string | unde
 		const data = (await response.json()) as { version?: string };
 		const latestVersion = data.version;
 
-		if (latestVersion && latestVersion !== currentVersion) {
+		if (latestVersion && Bun.semver.order(latestVersion, currentVersion) > 0) {
 			return latestVersion;
 		}
 
@@ -99,7 +113,7 @@ async function runInteractiveMode(
 	parsedArgs: Args,
 	setExtensionUIContext: (uiContext: ExtensionUIContext, hasUI: boolean) => void,
 	lspServers: Array<{ name: string; status: "ready" | "error"; fileTypes: string[]; error?: string }> | undefined,
-	mcpManager: import("./mcp").MCPManager | undefined,
+	mcpManager: MCPManager | undefined,
 	initialMessage?: string,
 	initialImages?: ImageContent[],
 ): Promise<void> {
@@ -123,6 +137,9 @@ async function runInteractiveMode(
 
 	versionCheckPromise
 		.then(newVersion => {
+			if (!settings.get("startup.checkUpdate")) {
+				return;
+			}
 			if (newVersion) {
 				mode.showNewVersionNotification(newVersion);
 			}
@@ -144,7 +161,7 @@ async function runInteractiveMode(
 		}
 	}
 
-	if (initialMessage) {
+	if (initialMessage !== undefined) {
 		try {
 			await session.prompt(initialMessage, { images: initialImages });
 		} catch (error: unknown) {
@@ -166,33 +183,6 @@ async function runInteractiveMode(
 		const input = await mode.getUserInput();
 		await submitInteractiveInput(mode, session, input);
 	}
-}
-
-async function prepareInitialMessage(
-	parsed: Args,
-	autoResizeImages: boolean,
-): Promise<{
-	initialMessage?: string;
-	initialImages?: ImageContent[];
-}> {
-	if (parsed.fileArgs.length === 0) {
-		return {};
-	}
-
-	const { text, images } = await processFileArguments(parsed.fileArgs, { autoResizeImages });
-
-	let initialMessage: string;
-	if (parsed.messages.length > 0) {
-		initialMessage = text + parsed.messages[0];
-		parsed.messages.shift();
-	} else {
-		initialMessage = text;
-	}
-
-	return {
-		initialMessage,
-		initialImages: images.length > 0 ? images : undefined,
-	};
 }
 
 function normalizePathForComparison(value: string): string {
@@ -244,6 +234,21 @@ async function getChangelogForDisplay(parsed: Args): Promise<string | undefined>
 }
 
 async function createSessionManager(parsed: Args, cwd: string): Promise<SessionManager | undefined> {
+	if (parsed.fork) {
+		if (parsed.noSession) {
+			throw new Error("--fork requires session persistence");
+		}
+		const forkSource = parsed.fork;
+		if (forkSource.includes("/") || forkSource.includes("\\") || forkSource.endsWith(".jsonl")) {
+			return await SessionManager.forkFrom(forkSource, cwd, parsed.sessionDir);
+		}
+		const match = await resolveResumableSession(forkSource, cwd, parsed.sessionDir);
+		if (!match) {
+			throw new Error(`Session "${forkSource}" not found.`);
+		}
+		return await SessionManager.forkFrom(match.session.path, cwd, parsed.sessionDir);
+	}
+
 	if (parsed.noSession) {
 		return SessionManager.inMemory();
 	}
@@ -380,6 +385,9 @@ async function buildSessionOptions(
 
 	if (sessionManager) {
 		options.sessionManager = sessionManager;
+	}
+	if (parsed.providerSessionId) {
+		options.providerSessionId = parsed.providerSessionId;
 	}
 
 	// Model from CLI
@@ -572,22 +580,27 @@ export async function runRootCommand(parsed: Args, rawArgs: string[]): Promise<v
 	if (parsedArgs.noPty) {
 		Bun.env.PI_NO_PTY = "1";
 	}
-	const {
-		pipedInput,
-		initialMessage: initMsg,
-		initialImages,
-	} = await logger.timeAsync("prepareInitialMessage", async () => {
+	const { pipedInput, fileText, fileImages } = await logger.timeAsync("prepareInitialMessage", async () => {
 		const pipedInput = await readPipedInput();
-		let { initialMessage, initialImages } = await prepareInitialMessage(
-			parsedArgs,
-			settings.get("images.autoResize"),
-		);
-		if (pipedInput) {
-			initialMessage = initialMessage ? `${initialMessage}\n${pipedInput}` : pipedInput;
+		if (parsedArgs.fileArgs.length === 0) {
+			return { pipedInput };
 		}
-		return { pipedInput, initialMessage, initialImages };
+
+		const { text, images } = await processFileArguments(parsedArgs.fileArgs, {
+			autoResizeImages: settings.get("images.autoResize"),
+		});
+		return {
+			pipedInput,
+			fileText: text,
+			fileImages: images,
+		};
 	});
-	const initialMessage = initMsg;
+	const { initialMessage, initialImages } = buildInitialMessage({
+		parsed: parsedArgs,
+		fileText,
+		fileImages,
+		stdinContent: pipedInput,
+	});
 	const autoPrint = pipedInput !== undefined && !parsedArgs.print && parsedArgs.mode === undefined;
 	const isInteractive = !parsedArgs.print && !autoPrint && parsedArgs.mode === undefined;
 	const mode = parsedArgs.mode || "text";
@@ -633,7 +646,7 @@ export async function runRootCommand(parsed: Args, rawArgs: string[]): Promise<v
 	let sessionManager = await logger.timeAsync("createSessionManager", () => createSessionManager(parsedArgs, cwd));
 
 	// Handle --resume (no value): show session picker
-	if (parsedArgs.resume === true) {
+	if (parsedArgs.resume === true && !parsedArgs.fork) {
 		const sessions = await logger.timeAsync("SessionManager.list", () =>
 			SessionManager.list(cwd, parsedArgs.sessionDir),
 		);
@@ -647,6 +660,46 @@ export async function runRootCommand(parsed: Args, rawArgs: string[]): Promise<v
 			return;
 		}
 		sessionManager = await SessionManager.open(selectedPath);
+	}
+
+	// Wire --plugin-dir and preload plugin roots for sync consumers (LSP config)
+	const home = os.homedir();
+	if (parsedArgs.pluginDirs && parsedArgs.pluginDirs.length > 0) {
+		await logger.timeAsync("injectPluginDirRoots", () => injectPluginDirRoots(home, parsedArgs.pluginDirs!));
+	} else {
+		await logger.timeAsync("preloadPluginRoots", () => preloadPluginRoots(home));
+	}
+
+	// Background marketplace auto-update — never blocks startup.
+	const autoUpdate = settings.get("marketplace.autoUpdate");
+	if (autoUpdate !== "off") {
+		void (async () => {
+			try {
+				const mgr = new MarketplaceManager({
+					marketplacesRegistryPath: getMarketplacesRegistryPath(),
+					installedRegistryPath: getInstalledPluginsRegistryPath(),
+					marketplacesCacheDir: getMarketplacesCacheDir(),
+					pluginsCacheDir: getPluginsCacheDir(),
+					clearPluginRootsCache: () => {
+						const h = os.homedir();
+						invalidateFsCache(path.join(h, ".claude", "plugins", "installed_plugins.json"));
+						invalidateFsCache(path.join(h, getConfigDirName(), "plugins", "installed_plugins.json"));
+						clearClaudePluginRootsCache();
+					},
+				});
+				await mgr.refreshStaleMarketplaces();
+				const updates = await mgr.checkForUpdates();
+				if (updates.length === 0) return;
+				if (autoUpdate === "auto") {
+					await mgr.upgradeAllPlugins();
+					logger.debug(`Auto-upgraded ${updates.length} marketplace plugin(s)`);
+				} else {
+					logger.debug(`${updates.length} marketplace plugin update(s) available \u2014 /marketplace upgrade`);
+				}
+			} catch {
+				// Silently ignore — network failure, corrupt data, offline.
+			}
+		})();
 	}
 
 	const { options: sessionOptions } = await logger.timeAsync("buildSessionOptions", () =>
@@ -725,6 +778,8 @@ export async function runRootCommand(parsed: Args, rawArgs: string[]): Promise<v
 
 	if (mode === "rpc") {
 		await runRpcMode(session);
+	} else if (mode === "acp") {
+		await runAcpMode(session);
 	} else if (isInteractive) {
 		const versionCheckPromise = checkForNewVersion(VERSION).catch(() => undefined);
 		const changelogMarkdown = await getChangelogForDisplay(parsedArgs);

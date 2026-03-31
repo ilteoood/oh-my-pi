@@ -16,6 +16,57 @@ import { type ContextFile, loadCapability, type SystemPrompt as SystemPromptFile
 import { loadSkills, type Skill } from "./extensibility/skills";
 import customSystemPromptTemplate from "./prompts/system/custom-system-prompt.md" with { type: "text" };
 import systemPromptTemplate from "./prompts/system/system-prompt.md" with { type: "text" };
+import { formatPromptContent } from "./utils/prompt-format";
+
+interface AlwaysApplyRule {
+	name: string;
+	content: string;
+	path: string;
+}
+
+function normalizePromptBlock(content: string): string {
+	return formatPromptContent(content, { renderPhase: "post-render" }).trim();
+}
+
+function splitComparablePromptBlocks(content: string | null | undefined): string[] {
+	const normalized = firstNonEmpty(content);
+	if (!normalized) return [];
+
+	return normalizePromptBlock(normalized)
+		.split(/\n{2,}/)
+		.map(block => block.trim())
+		.filter(block => block.length > 0);
+}
+
+function promptSourceContainsRule(source: string | null | undefined, ruleContent: string): boolean {
+	const sourceBlocks = splitComparablePromptBlocks(source);
+	const ruleBlocks = splitComparablePromptBlocks(ruleContent);
+	if (sourceBlocks.length === 0 || ruleBlocks.length === 0 || ruleBlocks.length > sourceBlocks.length) return false;
+
+	for (let start = 0; start <= sourceBlocks.length - ruleBlocks.length; start += 1) {
+		if (ruleBlocks.every((block, offset) => sourceBlocks[start + offset] === block)) return true;
+	}
+
+	return false;
+}
+
+function dedupeAlwaysApplyRules(
+	alwaysApplyRules: AlwaysApplyRule[] | undefined,
+	promptSources: Array<string | null | undefined>,
+): AlwaysApplyRule[] {
+	if (!alwaysApplyRules || alwaysApplyRules.length === 0) return [];
+
+	return alwaysApplyRules.filter(
+		rule => !promptSources.some(source => promptSourceContainsRule(source, rule.content)),
+	);
+}
+
+function dedupePromptSource(source: string | null | undefined, otherSources: Array<string | null | undefined>): string {
+	const resolvedSource = firstNonEmpty(source);
+	if (!resolvedSource) return "";
+
+	return otherSources.some(otherSource => promptSourceContainsRule(otherSource, resolvedSource)) ? "" : resolvedSource;
+}
 
 function firstNonEmpty(...values: (string | undefined | null)[]): string | null {
 	for (const value of values) {
@@ -260,6 +311,18 @@ export interface LoadContextFilesOptions {
 	cwd?: string;
 }
 
+function dedupeExactContextFiles(
+	contextFiles: Array<{ path: string; content: string; depth?: number }>,
+): Array<{ path: string; content: string; depth?: number }> {
+	const lastIndexByContent = new Map<string, number>();
+	for (const [index, file] of contextFiles.entries()) {
+		// Keep the closest matching context entry when content is byte-for-byte identical.
+		lastIndexByContent.set(file.content, index);
+	}
+
+	return contextFiles.filter((file, index) => lastIndexByContent.get(file.content) === index);
+}
+
 /**
  * Load all project context files using the capability API.
  * Returns {path, content, depth} entries for all discovered context files.
@@ -290,12 +353,12 @@ export async function loadProjectContextFiles(
 		return depthB - depthA;
 	});
 
-	return files;
+	return dedupeExactContextFiles(files);
 }
 
 /**
- * Load system prompt customization files (SYSTEM.md).
- * Returns combined content from all discovered SYSTEM.md files.
+ * Load the effective system prompt customization from SYSTEM.md.
+ * Project-level SYSTEM.md overrides user-level SYSTEM.md.
  */
 export async function loadSystemPromptFiles(options: LoadContextFilesOptions = {}): Promise<string | null> {
 	const resolvedCwd = options.cwd ?? getProjectDir();
@@ -304,16 +367,13 @@ export async function loadSystemPromptFiles(options: LoadContextFilesOptions = {
 
 	if (result.items.length === 0) return null;
 
-	// Combine all SYSTEM.md contents (user-level first, then project-level)
-	const userLevel = result.items.filter(item => item.level === "user");
-	const projectLevel = result.items.filter(item => item.level === "project");
-
-	const parts: string[] = [];
-	for (const item of [...userLevel, ...projectLevel]) {
-		parts.push(item.content);
+	const projectLevel = result.items.find(item => item.level === "project");
+	if (projectLevel) {
+		return projectLevel.content;
 	}
 
-	return parts.join("\n\n");
+	const userLevel = result.items.find(item => item.level === "user");
+	return userLevel?.content ?? null;
 }
 
 export interface SystemPromptToolMetadata {
@@ -370,6 +430,8 @@ export interface BuildSystemPromptOptions {
 	mcpDiscoveryServerSummaries?: string[];
 	/** Encourage the agent to delegate via tasks unless changes are trivial. */
 	eagerTasks?: boolean;
+	/** Rules with alwaysApply=true — their full content is injected into the prompt. */
+	alwaysApplyRules?: AlwaysApplyRule[];
 }
 
 /** Build the system prompt with tools, guidelines, and context */
@@ -389,6 +451,7 @@ export async function buildSystemPrompt(options: BuildSystemPromptOptions = {}):
 		contextFiles: providedContextFiles,
 		skills: providedSkills,
 		rules,
+		alwaysApplyRules,
 		intentField,
 		mcpDiscoveryMode = false,
 		mcpDiscoveryServerSummaries = [],
@@ -447,7 +510,9 @@ export async function buildSystemPrompt(options: BuildSystemPromptOptions = {}):
 	let resolvedCustomPrompt: string | undefined;
 	let resolvedAppendPrompt: string | undefined;
 	let systemPromptCustomization: string | null = null;
-	let contextFiles: Array<{ path: string; content: string; depth?: number }> = providedContextFiles ?? [];
+	let contextFiles: Array<{ path: string; content: string; depth?: number }> = dedupeExactContextFiles(
+		providedContextFiles ?? [],
+	);
 	let agentsMdSearch: AgentsMdSearch = {
 		scopePath: ".",
 		limit: AGENTS_MD_LIMIT,
@@ -474,7 +539,7 @@ export async function buildSystemPrompt(options: BuildSystemPromptOptions = {}):
 		resolvedCustomPrompt = prepResult.value.resolvedCustomPrompt;
 		resolvedAppendPrompt = prepResult.value.resolvedAppendPrompt;
 		systemPromptCustomization = prepResult.value.systemPromptCustomization;
-		contextFiles = prepResult.value.contextFiles;
+		contextFiles = dedupeExactContextFiles(prepResult.value.contextFiles);
 		agentsMdSearch = prepResult.value.agentsMdSearch;
 		skills = prepResult.value.skills;
 	}
@@ -508,9 +573,16 @@ export async function buildSystemPrompt(options: BuildSystemPromptOptions = {}):
 	const hasRead = tools?.has("read");
 	const filteredSkills = hasRead ? skills : [];
 
+	const effectiveSystemPromptCustomization = dedupePromptSource(systemPromptCustomization, [
+		resolvedCustomPrompt,
+		resolvedAppendPrompt,
+	]);
+	const promptSources = [effectiveSystemPromptCustomization, resolvedCustomPrompt, resolvedAppendPrompt];
+	const injectedAlwaysApplyRules = dedupeAlwaysApplyRules(alwaysApplyRules, promptSources);
+
 	const environment = await logger.timeAsync("getEnvironmentInfo", getEnvironmentInfo);
 	const data = {
-		systemPromptCustomization: systemPromptCustomization ?? "",
+		systemPromptCustomization: effectiveSystemPromptCustomization,
 		customPrompt: resolvedCustomPrompt,
 		appendPrompt: resolvedAppendPrompt ?? "",
 		tools: toolNames,
@@ -521,6 +593,7 @@ export async function buildSystemPrompt(options: BuildSystemPromptOptions = {}):
 		agentsMdSearch,
 		skills: filteredSkills,
 		rules: rules ?? [],
+		alwaysApplyRules: injectedAlwaysApplyRules,
 		date,
 		dateTime,
 		cwd: promptCwd,

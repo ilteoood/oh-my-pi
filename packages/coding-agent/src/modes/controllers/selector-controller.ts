@@ -1,12 +1,23 @@
+import * as os from "node:os";
+import * as path from "node:path";
 import { ThinkingLevel } from "@oh-my-pi/pi-agent-core";
 import { getOAuthProviders, type OAuthProvider } from "@oh-my-pi/pi-ai";
 import type { Component } from "@oh-my-pi/pi-tui";
 import { Input, Loader, Spacer, Text } from "@oh-my-pi/pi-tui";
-import { getAgentDbPath, getProjectDir } from "@oh-my-pi/pi-utils";
-import { MODEL_ROLES } from "../../config/model-registry";
+import { getAgentDbPath, getConfigDirName, getProjectDir } from "@oh-my-pi/pi-utils";
+import { invalidate as invalidateFsCache } from "../../capability/fs";
+import { getRoleInfo } from "../../config/model-registry";
 import { settings } from "../../config/settings";
 import { DebugSelectorComponent } from "../../debug";
 import { disableProvider, enableProvider } from "../../discovery";
+import { clearClaudePluginRootsCache } from "../../discovery/helpers";
+import {
+	getInstalledPluginsRegistryPath,
+	getMarketplacesCacheDir,
+	getMarketplacesRegistryPath,
+	getPluginsCacheDir,
+	MarketplaceManager,
+} from "../../extensibility/plugins/marketplace";
 import {
 	getAvailableThemes,
 	getSymbolTheme,
@@ -19,19 +30,15 @@ import {
 import type { InteractiveModeContext } from "../../modes/types";
 import { type SessionInfo, SessionManager } from "../../session/session-manager";
 import { FileSessionStorage } from "../../session/session-storage";
-import {
-	isCodeSearchProviderId,
-	isSearchProviderPreference,
-	setPreferredCodeSearchProvider,
-	setPreferredImageProvider,
-	setPreferredSearchProvider,
-} from "../../tools";
+import { isSearchProviderPreference, setPreferredImageProvider, setPreferredSearchProvider } from "../../tools";
+import { setSessionTerminalTitle } from "../../utils/title-generator";
 import { AgentDashboard } from "../components/agent-dashboard";
 import { AssistantMessageComponent } from "../components/assistant-message";
 import { ExtensionDashboard } from "../components/extensions";
 import { HistorySearchComponent } from "../components/history-search";
 import { ModelSelectorComponent } from "../components/model-selector";
 import { OAuthSelectorComponent } from "../components/oauth-selector";
+import { PluginSelectorComponent } from "../components/plugin-selector";
 import { SessionSelectorComponent } from "../components/session-selector";
 import { SettingsSelectorComponent } from "../components/settings-selector";
 import { ToolExecutionComponent } from "../components/tool-execution";
@@ -354,11 +361,6 @@ export class SelectorController {
 					setPreferredSearchProvider(value);
 				}
 				break;
-			case "providers.codeSearch":
-				if (typeof value === "string" && isCodeSearchProviderId(value)) {
-					setPreferredCodeSearchProvider(value);
-				}
-				break;
 			case "providers.image":
 				if (value === "auto" || value === "gemini" || value === "openrouter") {
 					setPreferredImageProvider(value);
@@ -405,7 +407,7 @@ export class SelectorController {
 							// Don't call done() - selector stays open for role assignment
 						} else {
 							// Other roles (smol, slow): just update settings, not current model
-							const roleInfo = MODEL_ROLES[role];
+							const roleInfo = getRoleInfo(role, settings);
 							const roleLabel = roleInfo?.name ?? role;
 							this.ctx.showStatus(`${roleLabel} model: ${model.id}`);
 							// Don't call done() - selector stays open
@@ -421,6 +423,96 @@ export class SelectorController {
 				options,
 			);
 			return { component: selector, focus: selector };
+		});
+	}
+
+	async showPluginSelector(mode: "install" | "uninstall" = "install"): Promise<void> {
+		const mgr = new MarketplaceManager({
+			marketplacesRegistryPath: getMarketplacesRegistryPath(),
+			installedRegistryPath: getInstalledPluginsRegistryPath(),
+			marketplacesCacheDir: getMarketplacesCacheDir(),
+			pluginsCacheDir: getPluginsCacheDir(),
+			clearPluginRootsCache: () => {
+				const home = os.homedir();
+				invalidateFsCache(path.join(home, ".claude", "plugins", "installed_plugins.json"));
+				invalidateFsCache(path.join(home, getConfigDirName(), "plugins", "installed_plugins.json"));
+				clearClaudePluginRootsCache();
+			},
+		});
+
+		const [marketplaces, installed] = await Promise.all([mgr.listMarketplaces(), mgr.listInstalledPlugins()]);
+		const installedIds = new Set(installed.map(p => p.id));
+
+		if (mode === "uninstall") {
+			// Show only installed plugins for uninstall
+			const items = installed.map(p => {
+				const entry = p.entries[0];
+				const atIdx = p.id.lastIndexOf("@");
+				const pluginName = atIdx > 0 ? p.id.slice(0, atIdx) : p.id;
+				const mkt = atIdx > 0 ? p.id.slice(atIdx + 1) : "unknown";
+				return {
+					plugin: { name: pluginName, version: entry?.version, description: undefined as string | undefined },
+					marketplace: mkt,
+				};
+			});
+			this.showSelector(done => {
+				const selector = new PluginSelectorComponent(marketplaces.length, items, new Set(), {
+					onSelect: async (name, marketplace) => {
+						done();
+						const pluginId = `${name}@${marketplace}`;
+						this.ctx.showStatus(`Uninstalling ${pluginId}...`);
+						this.ctx.ui.requestRender();
+						try {
+							await mgr.uninstallPlugin(pluginId);
+							this.ctx.showStatus(`Uninstalled ${pluginId}`);
+						} catch (err) {
+							this.ctx.showStatus(`Uninstall failed: ${err}`);
+						}
+						this.ctx.ui.requestRender();
+					},
+					onCancel: () => {
+						done();
+						this.ctx.ui.requestRender();
+					},
+				});
+				return { component: selector, focus: selector.getSelectList() };
+			});
+			return;
+		}
+
+		// Install mode: show all available plugins from all marketplaces
+		const allPlugins: Array<{
+			plugin: { name: string; version?: string; description?: string };
+			marketplace: string;
+		}> = [];
+		for (const mkt of marketplaces) {
+			const plugins = await mgr.listAvailablePlugins(mkt.name);
+			for (const plugin of plugins) {
+				allPlugins.push({ plugin, marketplace: mkt.name });
+			}
+		}
+
+		this.showSelector(done => {
+			const selector = new PluginSelectorComponent(marketplaces.length, allPlugins, installedIds, {
+				onSelect: async (name, marketplace) => {
+					done();
+					this.ctx.showStatus(`Installing ${name} from ${marketplace}...`);
+					this.ctx.ui.requestRender();
+					try {
+						const force = installedIds.has(`${name}@${marketplace}`);
+						await mgr.installPlugin(name, marketplace, { force });
+						this.ctx.showStatus(`Installed ${name} from ${marketplace}`);
+					} catch (err) {
+						this.ctx.showStatus(`Install failed: ${err}`);
+					}
+					this.ctx.ui.requestRender();
+				},
+				onCancel: () => {
+					done();
+					this.ctx.ui.requestRender();
+				},
+			});
+			return { component: selector, focus: selector.getSelectList() };
 		});
 	}
 
@@ -638,6 +730,14 @@ export class SelectorController {
 		this.ctx.pendingTools.clear();
 	}
 
+	#refreshSessionTerminalTitle(): void {
+		const sessionManager = this.ctx.sessionManager as {
+			getSessionName?: () => string | undefined;
+			getCwd: () => string;
+		};
+		setSessionTerminalTitle(sessionManager.getSessionName?.(), sessionManager.getCwd());
+	}
+
 	async #detachActiveSessionBeforeDeletion(sessionPath: string): Promise<boolean> {
 		const currentSessionFile = this.ctx.sessionManager.getSessionFile();
 		if (currentSessionFile !== sessionPath) {
@@ -648,6 +748,7 @@ export class SelectorController {
 		if (!detached) {
 			return false;
 		}
+		this.#refreshSessionTerminalTitle();
 
 		this.#clearTransientSessionUi();
 		this.ctx.statusLine.invalidate();
@@ -664,6 +765,7 @@ export class SelectorController {
 
 		// Switch session via AgentSession (emits hook and tool session events)
 		await this.ctx.session.switchSession(sessionPath);
+		this.#refreshSessionTerminalTitle();
 
 		// Clear and re-render the chat
 		this.ctx.chatContainer.clear();

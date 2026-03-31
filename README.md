@@ -238,9 +238,10 @@ Full Model Context Protocol support with external tool integration:
 - Stdio and HTTP transports for connecting to MCP servers
 - **OAuth support**: Explicit `clientId` and `callbackPort` in MCP server config, manual OAuth callbacks via slash commands
 - **Browser server filtering**: Automatically filters browser-type MCP servers to prevent conflicts with built-in browser tool
+- **Automatic Exa filtering**: Extracts Exa API keys and prefers the native Exa integration
+- **Config schema + setup guide**: [`docs/mcp-config.md`](./docs/mcp-config.md) and [`packages/coding-agent/src/config/mcp-schema.json`](./packages/coding-agent/src/config/mcp-schema.json)
 - Plugin CLI (`omp plugin install/enable/configure/doctor`)
 - Hot-loadable plugins from `~/.omp/plugins/` with npm/bun integration
-- Automatic Exa MCP server filtering with API key extraction
 - `disabledServers` works on both project-level and user-level third-party servers
 
 ### + Web Search & Fetch
@@ -279,6 +280,7 @@ Headless browser automation with 14 stealth scripts to evade bot detection:
 - **Selector flexibility**: CSS, `aria/`, `text/`, `xpath/`, `pierce/` query handlers for Shadow DOM piercing
 - **Reader mode**: `extract_readable` action uses Mozilla Readability for clean article extraction
 - **Headless/visible toggle**: Switch modes at runtime via `/browser` command or `browser.headless` setting
+- **NixOS support**: Automatically detects NixOS (`/etc/NIXOS`) and resolves a system Chromium (`chromium` on PATH, `~/.nix-profile/bin/chromium`, or `/run/current-system/sw/bin/chromium`) since Puppeteer's bundled binary cannot run on a non-FHS system
 
 ### + Cursor Provider
 
@@ -883,16 +885,33 @@ theme:
   dark: titanium
   light: light
 
+enabledModels:
+  - "anthropic/*"
+  - "*gpt*"
+  - "gemini-2.5-pro:high"
+
 modelRoles:
   default: anthropic/claude-sonnet-4-20250514
   plan: anthropic/claude-opus-4-1:high
   smol: anthropic/claude-sonnet-4-20250514
 defaultThinkingLevel: high
-enabledModels:
-  - anthropic/*
-  - "*gpt*"
-  - gemini-2.5-pro:high
 
+retry:
+  enabled: true
+  # Number of retries before giving up on rate limits/server errors
+  maxRetries: 3
+  # Wait this long as a base (exponentially backed off) unless the API provides a retry-after-ms
+  baseDelayMs: 2000
+  # Configure role-specific model fallback chains
+  fallbackChains:
+    default:
+      - "openai/gpt-4o-mini"
+      - "openai/gpt-4o"
+    plan:
+      - "anthropic/claude-sonnet-4-6:high"
+      - "openai/o3:high"
+  # Whether to revert to the primary model when a fallback's cooldown expires
+  fallbackRevertPolicy: cooldown-expiry
 steeringMode: one-at-a-time
 followUpMode: one-at-a-time
 interruptMode: immediate
@@ -912,10 +931,6 @@ compaction:
 skills:
   enabled: true
 
-retry:
-  enabled: true
-  maxRetries: 3
-  baseDelayMs: 2000
 
 terminal:
   showImages: true

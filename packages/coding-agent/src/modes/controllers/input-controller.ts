@@ -11,8 +11,9 @@ import type { AgentSessionEvent } from "../../session/agent-session";
 import { SKILL_PROMPT_MESSAGE_TYPE, type SkillPromptDetails } from "../../session/messages";
 import { executeBuiltinSlashCommand } from "../../slash-commands/builtin-registry";
 import { getEditorCommand, openInEditor } from "../../utils/external-editor";
+import { ensureSupportedImageInput } from "../../utils/image-input";
 import { resizeImage } from "../../utils/image-resize";
-import { generateSessionTitle, setTerminalTitle } from "../../utils/title-generator";
+import { generateSessionTitle, setSessionTerminalTitle } from "../../utils/title-generator";
 
 interface Expandable {
 	setExpanded(expanded: boolean): void;
@@ -26,6 +27,7 @@ export class InputController {
 	constructor(private ctx: InteractiveModeContext) {}
 
 	setupKeyHandlers(): void {
+		this.ctx.editor.setActionKeys("app.interrupt", this.ctx.keybindings.getKeys("app.interrupt"));
 		this.ctx.editor.shouldBypassAutocompleteOnEscape = () =>
 			Boolean(
 				this.ctx.loadingAnimation ||
@@ -64,7 +66,7 @@ export class InputController {
 			} else if (this.ctx.session.isStreaming) {
 				void this.ctx.session.abort();
 			} else if (!this.ctx.editor.getText().trim()) {
-				// Double-escape with empty editor triggers /tree, /branch, or nothing based on setting
+				// Double-interrupt with empty editor triggers /tree, /branch, or nothing based on setting
 				const action = settings.get("doubleEscapeAction");
 				if (action !== "none") {
 					const now = Date.now();
@@ -82,71 +84,79 @@ export class InputController {
 			}
 		};
 
-		this.ctx.editor.onCtrlC = () => this.handleCtrlC();
-		this.ctx.editor.onCtrlD = () => this.handleCtrlD();
-		this.ctx.editor.onCtrlZ = () => this.handleCtrlZ();
-		this.ctx.editor.onShiftTab = () => this.cycleThinkingLevel();
-		this.ctx.editor.onCtrlP = () => this.cycleRoleModel();
-		this.ctx.editor.onShiftCtrlP = () => this.cycleRoleModel({ temporary: true });
-		this.ctx.editor.onAltP = () => this.ctx.showModelSelector({ temporaryOnly: true });
+		this.ctx.editor.setActionKeys("app.clear", this.ctx.keybindings.getKeys("app.clear"));
+		this.ctx.editor.onClear = () => this.handleCtrlC();
+		this.ctx.editor.setActionKeys("app.exit", this.ctx.keybindings.getKeys("app.exit"));
+		this.ctx.editor.onExit = () => this.handleCtrlD();
+		this.ctx.editor.setActionKeys("app.suspend", this.ctx.keybindings.getKeys("app.suspend"));
+		this.ctx.editor.onSuspend = () => this.handleCtrlZ();
+		this.ctx.editor.setActionKeys("app.thinking.cycle", this.ctx.keybindings.getKeys("app.thinking.cycle"));
+		this.ctx.editor.onCycleThinkingLevel = () => this.cycleThinkingLevel();
+		this.ctx.editor.setActionKeys("app.model.cycleForward", this.ctx.keybindings.getKeys("app.model.cycleForward"));
+		this.ctx.editor.onCycleModelForward = () => this.cycleRoleModel();
+		this.ctx.editor.setActionKeys("app.model.cycleBackward", this.ctx.keybindings.getKeys("app.model.cycleBackward"));
+		this.ctx.editor.onCycleModelBackward = () => this.cycleRoleModel({ temporary: true });
+		this.ctx.editor.setActionKeys(
+			"app.model.selectTemporary",
+			this.ctx.keybindings.getKeys("app.model.selectTemporary"),
+		);
+		this.ctx.editor.onSelectModelTemporary = () => this.ctx.showModelSelector({ temporaryOnly: true });
 
 		// Global debug handler on TUI (works regardless of focus)
 		this.ctx.ui.onDebug = () => this.ctx.showDebugSelector();
-		this.ctx.editor.onCtrlL = () => this.ctx.showModelSelector();
-		this.ctx.editor.onCtrlR = () => this.ctx.showHistorySearch();
-		this.ctx.editor.onCtrlT = () => this.ctx.toggleTodoExpansion();
-		this.ctx.editor.onCtrlG = () => void this.openExternalEditor();
-		this.ctx.editor.onQuestionMark = () => this.ctx.handleHotkeysCommand();
-		this.ctx.editor.onCtrlV = () => this.handleImagePaste();
-		const copyPromptKeys = this.ctx.keybindings.getKeys("copyPrompt");
-		this.ctx.editor.onCopyPrompt = copyPromptKeys.includes("alt+shift+c") ? () => this.handleCopyPrompt() : undefined;
+		this.ctx.editor.setActionKeys("app.model.select", this.ctx.keybindings.getKeys("app.model.select"));
+		this.ctx.editor.onSelectModel = () => this.ctx.showModelSelector();
+		this.ctx.editor.setActionKeys("app.history.search", this.ctx.keybindings.getKeys("app.history.search"));
+		this.ctx.editor.onHistorySearch = () => this.ctx.showHistorySearch();
+		this.ctx.editor.setActionKeys("app.thinking.toggle", this.ctx.keybindings.getKeys("app.thinking.toggle"));
+		this.ctx.editor.onToggleThinking = () => this.ctx.toggleThinkingBlockVisibility();
+		this.ctx.editor.setActionKeys("app.editor.external", this.ctx.keybindings.getKeys("app.editor.external"));
+		this.ctx.editor.onExternalEditor = () => void this.openExternalEditor();
+		this.ctx.editor.onShowHotkeys = () => this.ctx.handleHotkeysCommand();
+		this.ctx.editor.setActionKeys(
+			"app.clipboard.pasteImage",
+			this.ctx.keybindings.getKeys("app.clipboard.pasteImage"),
+		);
+		this.ctx.editor.onPasteImage = () => this.handleImagePaste();
+		this.ctx.editor.setActionKeys(
+			"app.clipboard.copyPrompt",
+			this.ctx.keybindings.getKeys("app.clipboard.copyPrompt"),
+		);
+		this.ctx.editor.onCopyPrompt = () => this.handleCopyPrompt();
+		this.ctx.editor.setActionKeys("app.tools.expand", this.ctx.keybindings.getKeys("app.tools.expand"));
+		this.ctx.editor.onExpandTools = () => this.toggleToolOutputExpansion();
+		this.ctx.editor.setActionKeys("app.message.dequeue", this.ctx.keybindings.getKeys("app.message.dequeue"));
+		this.ctx.editor.onDequeue = () => this.handleDequeue();
 
+		this.ctx.editor.clearCustomKeyHandlers();
 		// Wire up extension shortcuts
 		this.registerExtensionShortcuts();
 
-		const expandToolsKeys = this.ctx.keybindings.getKeys("expandTools");
-		this.ctx.editor.onCtrlO = expandToolsKeys.includes("ctrl+o") ? () => this.toggleToolOutputExpansion() : undefined;
-		for (const key of expandToolsKeys) {
-			if (key === "ctrl+o") continue;
-			this.ctx.editor.setCustomKeyHandler(key, () => this.toggleToolOutputExpansion());
-		}
-
-		const dequeueKeys = this.ctx.keybindings.getKeys("dequeue");
-		this.ctx.editor.onAltUp = dequeueKeys.includes("alt+up") ? () => this.handleDequeue() : undefined;
-		for (const key of dequeueKeys) {
-			if (key === "alt+up") continue;
-			this.ctx.editor.setCustomKeyHandler(key, () => this.handleDequeue());
-		}
-
-		const planModeKeys = this.ctx.keybindings.getKeys("togglePlanMode");
+		const planModeKeys = this.ctx.keybindings.getKeys("app.plan.toggle");
 		for (const key of planModeKeys) {
 			this.ctx.editor.setCustomKeyHandler(key, () => void this.ctx.handlePlanModeCommand());
 		}
 
-		for (const key of this.ctx.keybindings.getKeys("newSession")) {
+		for (const key of this.ctx.keybindings.getKeys("app.session.new")) {
 			this.ctx.editor.setCustomKeyHandler(key, () => this.ctx.handleClearCommand());
 		}
-		for (const key of this.ctx.keybindings.getKeys("tree")) {
+		for (const key of this.ctx.keybindings.getKeys("app.session.tree")) {
 			this.ctx.editor.setCustomKeyHandler(key, () => this.ctx.showTreeSelector());
 		}
-		for (const key of this.ctx.keybindings.getKeys("fork")) {
+		for (const key of this.ctx.keybindings.getKeys("app.session.fork")) {
 			this.ctx.editor.setCustomKeyHandler(key, () => this.ctx.showUserMessageSelector());
 		}
-		for (const key of this.ctx.keybindings.getKeys("resume")) {
+		for (const key of this.ctx.keybindings.getKeys("app.session.resume")) {
 			this.ctx.editor.setCustomKeyHandler(key, () => this.ctx.showSessionSelector());
 		}
-		for (const key of this.ctx.keybindings.getKeys("followUp")) {
+		for (const key of this.ctx.keybindings.getKeys("app.message.followUp")) {
 			this.ctx.editor.setCustomKeyHandler(key, () => void this.handleFollowUp());
 		}
-		for (const key of this.ctx.keybindings.getKeys("toggleSTT")) {
+		for (const key of this.ctx.keybindings.getKeys("app.stt.toggle")) {
 			this.ctx.editor.setCustomKeyHandler(key, () => void this.ctx.handleSTTToggle());
 		}
-		for (const key of this.ctx.keybindings.getKeys("copyLine")) {
+		for (const key of this.ctx.keybindings.getKeys("app.clipboard.copyLine")) {
 			this.ctx.editor.setCustomKeyHandler(key, () => this.handleCopyCurrentLine());
-		}
-		for (const key of copyPromptKeys) {
-			if (key === "alt+shift+c") continue;
-			this.ctx.editor.setCustomKeyHandler(key, () => this.handleCopyPrompt());
 		}
 
 		this.ctx.editor.onChange = (text: string) => {
@@ -326,7 +336,7 @@ export class InputController {
 					.then(async title => {
 						if (title) {
 							await this.ctx.sessionManager.setSessionName(title);
-							setTerminalTitle(`π: ${title}`);
+							setSessionTerminalTitle(title, this.ctx.sessionManager.getCwd());
 						}
 					})
 					.catch(() => {});
@@ -493,17 +503,25 @@ export class InputController {
 			const image = await readImageFromClipboard();
 			if (image) {
 				const base64Data = image.data.toBase64();
-				let imageData = { data: base64Data, mimeType: image.mimeType };
+				let imageData = await ensureSupportedImageInput({
+					type: "image",
+					data: base64Data,
+					mimeType: image.mimeType,
+				});
+				if (!imageData) {
+					this.ctx.showStatus(`Unsupported clipboard image format: ${image.mimeType}`);
+					return false;
+				}
 				if (settings.get("images.autoResize")) {
 					try {
 						const resized = await resizeImage({
 							type: "image",
-							data: base64Data,
-							mimeType: image.mimeType,
+							data: imageData.data,
+							mimeType: imageData.mimeType,
 						});
-						imageData = { data: resized.data, mimeType: resized.mimeType };
+						imageData = { type: "image", data: resized.data, mimeType: resized.mimeType };
 					} catch {
-						imageData = { data: base64Data, mimeType: image.mimeType };
+						// Keep the normalized image when resize fails.
 					}
 				}
 
@@ -532,6 +550,7 @@ export class InputController {
 		return createPromptActionAutocompleteProvider({
 			commands,
 			basePath,
+			searchDb: this.ctx.session.searchDb,
 			keybindings: this.ctx.keybindings,
 			copyCurrentLine: () => this.handleCopyCurrentLine(),
 			copyPrompt: () => this.handleCopyPrompt(),
@@ -590,8 +609,8 @@ export class InputController {
 
 	async cycleRoleModel(options?: { temporary?: boolean }): Promise<void> {
 		try {
-			const roleOrder = ["smol", "default", "slow"] as const;
-			const result = await this.ctx.session.cycleRoleModels(roleOrder, options);
+			const cycleOrder = settings.get("cycleOrder");
+			const result = await this.ctx.session.cycleRoleModels(cycleOrder, options);
 			if (!result) {
 				this.ctx.showStatus("Only one role model available");
 				return;
@@ -607,7 +626,7 @@ export class InputController {
 					: "";
 			const tempLabel = options?.temporary ? " (temporary)" : "";
 			const cycleSeparator = theme.fg("dim", " > ");
-			const cycleLabel = roleOrder
+			const cycleLabel = cycleOrder
 				.map(role => {
 					if (role === result.role) {
 						return theme.bold(theme.fg("accent", role));

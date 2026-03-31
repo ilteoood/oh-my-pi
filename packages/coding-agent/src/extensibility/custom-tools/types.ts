@@ -6,6 +6,7 @@
  */
 import type { AgentToolResult, AgentToolUpdateCallback } from "@oh-my-pi/pi-agent-core";
 import type { Model } from "@oh-my-pi/pi-ai";
+import type { SearchDb } from "@oh-my-pi/pi-natives";
 import type { Component } from "@oh-my-pi/pi-tui";
 import type { Static, TSchema } from "@sinclair/typebox";
 import type { Rule } from "../../capability/rule";
@@ -71,6 +72,8 @@ export interface CustomToolContext {
 	modelRegistry: ModelRegistry;
 	/** Current model (may be undefined if no model is selected yet) */
 	model: Model | undefined;
+	/** Shared native search DB for grep/glob/fuzzyFind-backed workflows. */
+	searchDb?: SearchDb;
 	/** Whether the agent is idle (not streaming) */
 	isIdle(): boolean;
 	/** Whether there are queued messages waiting to be processed */
@@ -184,6 +187,10 @@ export interface CustomTool<TParams extends TSchema = TSchema, TDetails = any> {
 	hidden?: boolean;
 	/** If true, tool may stage deferred changes that require explicit resolve/discard. */
 	deferrable?: boolean;
+	/** MCP server name for discovery/search metadata when this tool fronts an MCP server. */
+	mcpServerName?: string;
+	/** Original MCP tool name for discovery/search metadata. */
+	mcpToolName?: string;
 	/**
 	 * Execute the tool.
 	 * @param toolCallId - Unique ID for this tool call

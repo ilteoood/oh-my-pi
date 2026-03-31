@@ -1,34 +1,91 @@
 import { Editor, type KeyId, matchesKey, parseKittySequence } from "@oh-my-pi/pi-tui";
+import type { AppKeybinding } from "../../config/keybindings";
+
+type ConfigurableEditorAction = Extract<
+	AppKeybinding,
+	| "app.interrupt"
+	| "app.clear"
+	| "app.exit"
+	| "app.suspend"
+	| "app.thinking.cycle"
+	| "app.model.cycleForward"
+	| "app.model.cycleBackward"
+	| "app.model.select"
+	| "app.model.selectTemporary"
+	| "app.tools.expand"
+	| "app.thinking.toggle"
+	| "app.editor.external"
+	| "app.history.search"
+	| "app.message.dequeue"
+	| "app.clipboard.pasteImage"
+	| "app.clipboard.copyPrompt"
+>;
+
+const DEFAULT_ACTION_KEYS: Record<ConfigurableEditorAction, KeyId[]> = {
+	"app.interrupt": ["escape"],
+	"app.clear": ["ctrl+c"],
+	"app.exit": ["ctrl+d"],
+	"app.suspend": ["ctrl+z"],
+	"app.thinking.cycle": ["shift+tab"],
+	"app.model.cycleForward": ["ctrl+p"],
+	"app.model.cycleBackward": ["shift+ctrl+p"],
+	"app.model.select": ["ctrl+l"],
+	"app.model.selectTemporary": ["alt+p"],
+	"app.tools.expand": ["ctrl+o"],
+	"app.thinking.toggle": ["ctrl+t"],
+	"app.editor.external": ["ctrl+g"],
+	"app.history.search": ["ctrl+r"],
+	"app.message.dequeue": ["alt+up"],
+	"app.clipboard.pasteImage": ["ctrl+v"],
+	"app.clipboard.copyPrompt": ["alt+shift+c"],
+};
 
 /**
- * Custom editor that handles Escape and Ctrl+C keys for coding-agent
+ * Custom editor that handles configurable app-level shortcuts for coding-agent.
  */
 export class CustomEditor extends Editor {
 	onEscape?: () => void;
 	shouldBypassAutocompleteOnEscape?: () => boolean;
-	onCtrlC?: () => void;
-	onCtrlD?: () => void;
-	onShiftTab?: () => void;
-	onCtrlP?: () => void;
-	onShiftCtrlP?: () => void;
-	onCtrlL?: () => void;
-	onCtrlR?: () => void;
-	onCtrlO?: () => void;
-	onCtrlT?: () => void;
-	onCtrlG?: () => void;
-	onCtrlZ?: () => void;
-	onQuestionMark?: () => void;
-	onCapsLock?: () => void;
-	onAltP?: () => void;
-	/** Called when Alt+Shift+C is pressed to copy prompt to clipboard. */
+	onClear?: () => void;
+	onExit?: () => void;
+	onCycleThinkingLevel?: () => void;
+	onCycleModelForward?: () => void;
+	onCycleModelBackward?: () => void;
+	onSelectModel?: () => void;
+	onExpandTools?: () => void;
+	onToggleThinking?: () => void;
+	onExternalEditor?: () => void;
+	onHistorySearch?: () => void;
+	onSuspend?: () => void;
+	onShowHotkeys?: () => void;
+	onSelectModelTemporary?: () => void;
+	/** Called when the configured copy-prompt shortcut is pressed. */
 	onCopyPrompt?: () => void;
-	/** Called when Ctrl+V is pressed. Returns true if handled (image found), false to fall through to text paste. */
-	onCtrlV?: () => Promise<boolean>;
-	/** Called when Alt+Up is pressed (dequeue keybinding). */
-	onAltUp?: () => void;
+	/** Called when the configured image-paste shortcut is pressed. */
+	onPasteImage?: () => Promise<boolean>;
+	/** Called when the configured dequeue shortcut is pressed. */
+	onDequeue?: () => void;
+	/** Called when Caps Lock is pressed. */
+	onCapsLock?: () => void;
 
-	/** Custom key handlers from extensions */
+	/** Custom key handlers from extensions and non-built-in app actions. */
 	#customKeyHandlers = new Map<KeyId, () => void>();
+	#actionKeys = new Map<ConfigurableEditorAction, KeyId[]>(
+		Object.entries(DEFAULT_ACTION_KEYS).map(([action, keys]) => [action as ConfigurableEditorAction, [...keys]]),
+	);
+
+	setActionKeys(action: ConfigurableEditorAction, keys: KeyId[]): void {
+		this.#actionKeys.set(action, [...keys]);
+	}
+
+	#matchesAction(data: string, action: ConfigurableEditorAction): boolean {
+		const keys = this.#actionKeys.get(action);
+		if (!keys) return false;
+		for (const key of keys) {
+			if (matchesKey(data, key)) return true;
+		}
+		return false;
+	}
 
 	/**
 	 * Register a custom key handler. Extensions use this for shortcuts.
@@ -59,111 +116,111 @@ export class CustomEditor extends Editor {
 			return;
 		}
 
-		// Intercept Ctrl+V for image paste (async - fires and handles result)
-		if (matchesKey(data, "ctrl+v") && this.onCtrlV) {
-			void this.onCtrlV();
+		// Intercept configured image paste (async - fires and handles result)
+		if (this.#matchesAction(data, "app.clipboard.pasteImage") && this.onPasteImage) {
+			void this.onPasteImage();
 			return;
 		}
 
-		// Intercept Ctrl+G for external editor
-		if (matchesKey(data, "ctrl+g") && this.onCtrlG) {
-			this.onCtrlG();
+		// Intercept configured external editor shortcut
+		if (this.#matchesAction(data, "app.editor.external") && this.onExternalEditor) {
+			this.onExternalEditor();
 			return;
 		}
 
-		// Intercept Alt+P for quick model switching
-		if (matchesKey(data, "alt+p") && this.onAltP) {
-			this.onAltP();
+		// Intercept configured temporary model selector shortcut
+		if (this.#matchesAction(data, "app.model.selectTemporary") && this.onSelectModelTemporary) {
+			this.onSelectModelTemporary();
 			return;
 		}
 
-		// Intercept Ctrl+Z for suspend
-		if (matchesKey(data, "ctrl+z") && this.onCtrlZ) {
-			this.onCtrlZ();
+		// Intercept configured suspend shortcut
+		if (this.#matchesAction(data, "app.suspend") && this.onSuspend) {
+			this.onSuspend();
 			return;
 		}
 
-		// Intercept Ctrl+T for thinking block visibility toggle
-		if (matchesKey(data, "ctrl+t") && this.onCtrlT) {
-			this.onCtrlT();
+		// Intercept configured thinking block visibility toggle
+		if (this.#matchesAction(data, "app.thinking.toggle") && this.onToggleThinking) {
+			this.onToggleThinking();
 			return;
 		}
 
-		// Intercept Ctrl+L for model selector
-		if (matchesKey(data, "ctrl+l") && this.onCtrlL) {
-			this.onCtrlL();
+		// Intercept configured model selector shortcut
+		if (this.#matchesAction(data, "app.model.select") && this.onSelectModel) {
+			this.onSelectModel();
 			return;
 		}
 
-		// Intercept Ctrl+R for history search
-		if (matchesKey(data, "ctrl+r") && this.onCtrlR) {
-			this.onCtrlR();
+		// Intercept configured history search shortcut
+		if (this.#matchesAction(data, "app.history.search") && this.onHistorySearch) {
+			this.onHistorySearch();
 			return;
 		}
 
-		// Intercept Ctrl+O for tool output expansion
-		if (matchesKey(data, "ctrl+o") && this.onCtrlO) {
-			this.onCtrlO();
+		// Intercept configured tool output expansion shortcut
+		if (this.#matchesAction(data, "app.tools.expand") && this.onExpandTools) {
+			this.onExpandTools();
 			return;
 		}
 
-		// Intercept Shift+Ctrl+P for backward model cycling (check before Ctrl+P)
-		if ((matchesKey(data, "shift+ctrl+p") || matchesKey(data, "ctrl+shift+p")) && this.onShiftCtrlP) {
-			this.onShiftCtrlP();
+		// Intercept configured backward model cycling (check before forward cycling)
+		if (this.#matchesAction(data, "app.model.cycleBackward") && this.onCycleModelBackward) {
+			this.onCycleModelBackward();
 			return;
 		}
 
-		// Intercept Ctrl+P for model cycling
-		if (matchesKey(data, "ctrl+p") && this.onCtrlP) {
-			this.onCtrlP();
+		// Intercept configured forward model cycling
+		if (this.#matchesAction(data, "app.model.cycleForward") && this.onCycleModelForward) {
+			this.onCycleModelForward();
 			return;
 		}
 
-		// Intercept Shift+Tab for thinking level cycling
-		if (matchesKey(data, "shift+tab") && this.onShiftTab) {
-			this.onShiftTab();
+		// Intercept configured thinking level cycling
+		if (this.#matchesAction(data, "app.thinking.cycle") && this.onCycleThinkingLevel) {
+			this.onCycleThinkingLevel();
 			return;
 		}
 
-		// Intercept Escape key.
-		// Default behavior keeps autocomplete dismissal, but parent can prioritize global escape handling.
-		if ((matchesKey(data, "escape") || matchesKey(data, "esc")) && this.onEscape) {
+		// Intercept configured interrupt shortcut.
+		// Default behavior keeps autocomplete dismissal, but parent can prioritize global interrupt handling.
+		if (this.#matchesAction(data, "app.interrupt") && this.onEscape) {
 			if (!this.isShowingAutocomplete() || this.shouldBypassAutocompleteOnEscape?.()) {
 				this.onEscape();
 				return;
 			}
 		}
 
-		// Intercept Ctrl+C
-		if (matchesKey(data, "ctrl+c") && this.onCtrlC) {
-			this.onCtrlC();
+		// Intercept configured clear shortcut
+		if (this.#matchesAction(data, "app.clear") && this.onClear) {
+			this.onClear();
 			return;
 		}
 
-		// Intercept Ctrl+D (only when editor is empty)
-		if (matchesKey(data, "ctrl+d")) {
-			if (this.getText().length === 0 && this.onCtrlD) {
-				this.onCtrlD();
+		// Intercept configured exit shortcut (only when editor is empty)
+		if (this.#matchesAction(data, "app.exit")) {
+			if (this.getText().length === 0 && this.onExit) {
+				this.onExit();
 			}
-			// Always consume Ctrl+D (don't pass to parent)
+			// Always consume exit shortcut (don't pass to parent)
 			return;
 		}
 
-		// Intercept Alt+Up for dequeue (restore queued message to editor)
-		if (matchesKey(data, "alt+up") && this.onAltUp) {
-			this.onAltUp();
+		// Intercept configured dequeue shortcut (restore queued message to editor)
+		if (this.#matchesAction(data, "app.message.dequeue") && this.onDequeue) {
+			this.onDequeue();
 			return;
 		}
 
-		// Intercept Alt+Shift+C to copy prompt to clipboard
-		if (matchesKey(data, "alt+shift+c") && this.onCopyPrompt) {
+		// Intercept configured copy-prompt shortcut
+		if (this.#matchesAction(data, "app.clipboard.copyPrompt") && this.onCopyPrompt) {
 			this.onCopyPrompt();
 			return;
 		}
 
 		// Intercept ? when editor is empty to show hotkeys
-		if (data === "?" && this.getText().length === 0 && this.onQuestionMark) {
-			this.onQuestionMark();
+		if (data === "?" && this.getText().length === 0 && this.onShowHotkeys) {
+			this.onShowHotkeys();
 			return;
 		}
 

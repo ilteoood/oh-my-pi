@@ -51,7 +51,11 @@ export interface SubmenuSettingDef extends BaseSettingDef {
 	onPreviewCancel?: (originalValue: string) => void;
 }
 
-export type SettingDef = BooleanSettingDef | EnumSettingDef | SubmenuSettingDef;
+export interface TextInputSettingDef extends BaseSettingDef {
+	type: "text";
+}
+
+export type SettingDef = BooleanSettingDef | EnumSettingDef | SubmenuSettingDef | TextInputSettingDef;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Condition Functions
@@ -112,6 +116,15 @@ const OPTION_PROVIDERS: Partial<Record<SettingPath, OptionProvider>> = {
 		{ value: "3", label: "3 retries" },
 		{ value: "5", label: "5 retries" },
 		{ value: "10", label: "10 retries" },
+	],
+	// Retry fallback revert policy
+	"retry.fallbackRevertPolicy": [
+		{
+			value: "cooldown-expiry",
+			label: "Cooldown expiry",
+			description: "Return to the primary model after its suppression window ends",
+		},
+		{ value: "never", label: "Never", description: "Stay on the fallback model until manually changed" },
 	],
 	// Task max concurrency
 	"task.maxConcurrency": [
@@ -299,10 +312,6 @@ const OPTION_PROVIDERS: Partial<Record<SettingPath, OptionProvider>> = {
 		{ value: "synthetic", label: "Synthetic", description: "Requires SYNTHETIC_API_KEY" },
 		{ value: "parallel", label: "Parallel", description: "Requires PARALLEL_API_KEY" },
 	],
-	"providers.codeSearch": [
-		{ value: "exa", label: "Exa", description: "Uses Exa public MCP code search" },
-		{ value: "grep", label: "grep.app", description: "Uses Vercel grep.app public code search" },
-	],
 	"providers.image": [
 		{ value: "auto", label: "Auto", description: "Priority: OpenRouter > Gemini" },
 		{ value: "gemini", label: "Gemini", description: "Requires GEMINI_API_KEY" },
@@ -463,6 +472,11 @@ function pathToSettingDef(path: SettingPath): SettingDef | null {
 		}
 		// For theme etc, options will be injected at runtime
 		return createSubmenuSettingDef(base, []);
+	}
+
+	// Plain string setting — free-text input field
+	if (schemaType === "string") {
+		return { ...base, type: "text" };
 	}
 
 	return null;

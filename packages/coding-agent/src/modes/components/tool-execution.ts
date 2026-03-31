@@ -14,6 +14,7 @@ import {
 	type TUI,
 } from "@oh-my-pi/pi-tui";
 import { getProjectDir, logger } from "@oh-my-pi/pi-utils";
+import { settings } from "../../config/settings";
 import type { Theme } from "../../modes/theme/theme";
 import { theme } from "../../modes/theme/theme";
 import { computeEditDiff, computeHashlineDiff, computePatchDiff, type DiffError, type DiffResult } from "../../patch";
@@ -105,17 +106,16 @@ export class ToolExecutionComponent extends Container {
 	// Cached converted images for Kitty protocol (which requires PNG), keyed by index
 	#convertedImages: Map<number, { data: string; mimeType: string }> = new Map();
 	// Spinner animation for partial task results
-	#spinnerFrame = 0;
+	#spinnerFrame?: number;
 	#spinnerInterval?: NodeJS.Timeout;
 	// Track if args are still being streamed (for edit/write spinner)
 	#argsComplete = false;
 	#renderState: {
-		spinnerFrame: number;
+		spinnerFrame?: number;
 		expanded: boolean;
 		isPartial: boolean;
 		renderContext?: Record<string, unknown>;
 	} = {
-		spinnerFrame: 0,
 		expanded: false,
 		isPartial: true,
 	};
@@ -328,10 +328,9 @@ export class ToolExecutionComponent extends Container {
 			this.#spinnerInterval = setInterval(() => {
 				const frameCount = theme.spinnerFrames.length;
 				if (frameCount === 0) return;
-				this.#spinnerFrame = (this.#spinnerFrame + 1) % frameCount;
+				this.#spinnerFrame = ((this.#spinnerFrame ?? -1) + 1) % frameCount;
 				this.#renderState.spinnerFrame = this.#spinnerFrame;
 				this.#ui.requestRender();
-				// NO updateDisplay() — existing component closures read from renderState
 			}, 80);
 		} else if (!needsSpinner && this.#spinnerInterval) {
 			clearInterval(this.#spinnerInterval);
@@ -346,6 +345,7 @@ export class ToolExecutionComponent extends Container {
 		if (this.#spinnerInterval) {
 			clearInterval(this.#spinnerInterval);
 			this.#spinnerInterval = undefined;
+			this.#spinnerFrame = undefined;
 		}
 	}
 
@@ -531,7 +531,7 @@ export class ToolExecutionComponent extends Container {
 						imageData,
 						imageMimeType,
 						{ fallbackColor: (s: string) => theme.fg("toolOutput", s) },
-						{ maxWidthCells: 60 },
+						{ maxWidthCells: settings.get("tui.maxInlineImageColumns") },
 					);
 					this.#imageComponents.push(imageComponent);
 					this.addChild(imageComponent);

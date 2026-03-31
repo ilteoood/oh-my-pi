@@ -50,6 +50,15 @@ export type AnthropicHeaderOptions = {
 	modelHeaders?: Record<string, string>;
 };
 
+export function normalizeAnthropicBaseUrl(baseUrl?: string): string | undefined {
+	const trimmed = baseUrl?.trim();
+	if (!trimmed) {
+		return undefined;
+	}
+	const withoutTrailingSlashes = trimmed.replace(/\/+$/, "");
+	return withoutTrailingSlashes.endsWith("/v1") ? withoutTrailingSlashes.slice(0, -3) : withoutTrailingSlashes;
+}
+
 // Build deduplicated beta header string
 export function buildBetaHeader(baseBetas: string[], extraBetas: string[]): string {
 	const seen = new Set<string>();
@@ -376,6 +385,12 @@ export interface AnthropicOptions extends StreamOptions {
 	betas?: string[] | string;
 	/** Force OAuth bearer auth mode for proxy tokens that don't match Anthropic token prefixes. */
 	isOAuth?: boolean;
+	/**
+	 * Pre-built Anthropic client instance. When provided, skips internal client
+	 * construction entirely. Use this to inject alternative SDK clients such as
+	 * `AnthropicVertex` that shares the same messaging API.
+	 */
+	client?: Anthropic;
 }
 
 export type AnthropicClientOptionsArgs = {
@@ -415,25 +430,20 @@ function isFoundryEnabled(): boolean {
 	return normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on";
 }
 
-function normalizeBaseUrl(baseUrl: string | undefined): string | undefined {
-	const trimmed = baseUrl?.trim();
-	return trimmed ? trimmed.replace(/\/+$/, "") : undefined;
-}
-
 function resolveAnthropicBaseUrl(model: Model<"anthropic-messages">, apiKey?: string): string | undefined {
 	if (model.provider === "github-copilot") {
-		return normalizeBaseUrl(resolveGitHubCopilotBaseUrl(model.baseUrl, apiKey) ?? model.baseUrl);
+		return normalizeAnthropicBaseUrl(resolveGitHubCopilotBaseUrl(model.baseUrl, apiKey) ?? model.baseUrl);
 	}
 	if (model.provider === "anthropic" && isFoundryEnabled()) {
-		const foundryBaseUrl = normalizeBaseUrl($env.FOUNDRY_BASE_URL);
+		const foundryBaseUrl = normalizeAnthropicBaseUrl($env.FOUNDRY_BASE_URL);
 		if (foundryBaseUrl) {
 			return foundryBaseUrl;
 		}
 	}
 	if (model.provider === "anthropic") {
-		return normalizeBaseUrl(model.baseUrl) ?? "https://api.anthropic.com";
+		return normalizeAnthropicBaseUrl(model.baseUrl) ?? "https://api.anthropic.com";
 	}
-	return normalizeBaseUrl(model.baseUrl);
+	return normalizeAnthropicBaseUrl(model.baseUrl);
 }
 
 function parseAnthropicCustomHeaders(rawHeaders: string | undefined): Record<string, string> | undefined {
@@ -611,19 +621,31 @@ export const streamAnthropic: StreamFunction<"anthropic-messages"> = (
 		let rawRequestDump: RawHttpRequestDump | undefined;
 
 		try {
-			const apiKey = options?.apiKey ?? getEnvApiKey(model.provider) ?? "";
-			const baseUrl = resolveAnthropicBaseUrl(model, apiKey) ?? "https://api.anthropic.com";
+			let client: Anthropic;
+			let isOAuthToken: boolean;
 
-			const { client, isOAuthToken } = createClient(model, {
-				model,
-				apiKey,
-				extraBetas: normalizeExtraBetas(options?.betas),
-				stream: true,
-				interleavedThinking: options?.interleavedThinking ?? true,
-				headers: options?.headers,
-				dynamicHeaders: copilotDynamicHeaders?.headers,
-				isOAuth: options?.isOAuth,
-			});
+			if (options?.client) {
+				client = options.client;
+				isOAuthToken = false;
+			} else {
+				const apiKey = options?.apiKey ?? getEnvApiKey(model.provider) ?? "";
+
+				const created = createClient(model, {
+					model,
+					apiKey,
+					extraBetas: normalizeExtraBetas(options?.betas),
+					stream: true,
+					interleavedThinking: options?.interleavedThinking ?? true,
+					headers: options?.headers,
+					dynamicHeaders: copilotDynamicHeaders?.headers,
+					isOAuth: options?.isOAuth,
+				});
+				client = created.client;
+				isOAuthToken = created.isOAuthToken;
+			}
+			const baseUrl =
+				resolveAnthropicBaseUrl(model, options?.apiKey ?? getEnvApiKey(model.provider) ?? "") ??
+				"https://api.anthropic.com";
 			let params = buildParams(model, baseUrl, context, isOAuthToken, options);
 			const replacementPayload = await options?.onPayload?.(params, model);
 			if (replacementPayload !== undefined) {
@@ -661,6 +683,7 @@ export const streamAnthropic: StreamFunction<"anthropic-messages"> = (
 					for await (const event of anthropicStream) {
 						started = true;
 						if (event.type === "message_start") {
+							output.responseId = event.message.id;
 							// Capture initial token usage from message_start event
 							// This ensures we have input token counts even if the stream is aborted early
 							output.usage.input = event.message.usage.input_tokens || 0;
@@ -680,7 +703,11 @@ export const streamAnthropic: StreamFunction<"anthropic-messages"> = (
 									index: event.index,
 								};
 								output.content.push(block);
-								stream.push({ type: "text_start", contentIndex: output.content.length - 1, partial: output });
+								stream.push({
+									type: "text_start",
+									contentIndex: output.content.length - 1,
+									partial: output,
+								});
 							} else if (event.content_block.type === "thinking") {
 								const block: Block = {
 									type: "thinking",
@@ -1324,7 +1351,10 @@ function buildParams(
 		if (typeof options.toolChoice === "string") {
 			params.tool_choice = { type: options.toolChoice };
 		} else if (isOAuthToken && options.toolChoice.name) {
-			params.tool_choice = { ...options.toolChoice, name: applyClaudeToolPrefix(options.toolChoice.name) };
+			params.tool_choice = {
+				...options.toolChoice,
+				name: applyClaudeToolPrefix(options.toolChoice.name),
+			};
 		} else {
 			params.tool_choice = options.toolChoice;
 		}

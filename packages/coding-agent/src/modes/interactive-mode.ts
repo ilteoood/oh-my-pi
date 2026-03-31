@@ -6,13 +6,18 @@ import * as path from "node:path";
 import { type Agent, type AgentMessage, ThinkingLevel } from "@oh-my-pi/pi-agent-core";
 import type { AssistantMessage, ImageContent, Message, Model, UsageReport } from "@oh-my-pi/pi-ai";
 import type { Component, SlashCommand } from "@oh-my-pi/pi-tui";
-import { Container, Loader, Markdown, ProcessTerminal, Spacer, Text, TUI } from "@oh-my-pi/pi-tui";
+import { Container, Loader, Markdown, ProcessTerminal, Spacer, Text, TUI, visibleWidth } from "@oh-my-pi/pi-tui";
 import { APP_NAME, getProjectDir, hsvToRgb, isEnoent, logger, postmortem } from "@oh-my-pi/pi-utils";
 import chalk from "chalk";
 import { KeybindingsManager } from "../config/keybindings";
 import { renderPromptTemplate } from "../config/prompt-templates";
 import { type Settings, settings } from "../config/settings";
-import type { ExtensionUIContext, ExtensionUIDialogOptions } from "../extensibility/extensions";
+import type {
+	ExtensionUIContext,
+	ExtensionUIDialogOptions,
+	ExtensionWidgetContent,
+	ExtensionWidgetOptions,
+} from "../extensibility/extensions";
 import type { CompactOptions } from "../extensibility/extensions/types";
 import { BUILTIN_SLASH_COMMANDS, loadSlashCommands } from "../extensibility/slash-commands";
 import { resolveLocalUrlToPath } from "../internal-urls";
@@ -24,7 +29,7 @@ import type { SessionContext, SessionManager } from "../session/session-manager"
 import { getRecentSessions } from "../session/session-manager";
 import { STTController, type SttState } from "../stt";
 import type { ExitPlanModeDetails } from "../tools";
-import { setTerminalTitle } from "../utils/title-generator";
+import { popTerminalTitle, pushTerminalTitle, setSessionTerminalTitle } from "../utils/title-generator";
 import type { AssistantMessageComponent } from "./components/assistant-message";
 import type { BashExecutionComponent } from "./components/bash-execution";
 import { CustomEditor } from "./components/custom-editor";
@@ -93,6 +98,8 @@ export class InteractiveMode implements InteractiveModeContext {
 	btwContainer: Container;
 	editor: CustomEditor;
 	editorContainer: Container;
+	hookWidgetContainerAbove: Container;
+	hookWidgetContainerBelow: Container;
 	statusLine: StatusLineComponent;
 
 	isInitialized = false;
@@ -216,6 +223,9 @@ export class InteractiveMode implements InteractiveModeContext {
 		} catch (error) {
 			logger.warn("History storage unavailable", { error: String(error) });
 		}
+		this.hookWidgetContainerAbove = new Container();
+		this.hookWidgetContainerAbove.addChild(new Spacer(1));
+		this.hookWidgetContainerBelow = new Container();
 		this.editorContainer = new Container();
 		this.editorContainer.addChild(this.editor);
 		this.statusLine = new StatusLineComponent(session);
@@ -263,7 +273,7 @@ export class InteractiveMode implements InteractiveModeContext {
 	async init(): Promise<void> {
 		if (this.isInitialized) return;
 
-		this.keybindings = await logger.timeAsync("InteractiveMode.init:keybindings", () => KeybindingsManager.create());
+		this.keybindings = logger.time("InteractiveMode.init:keybindings", () => KeybindingsManager.create());
 
 		// Register session manager flush for signal handlers (SIGINT, SIGTERM, SIGHUP)
 		this.#cleanupUnsubscribe = postmortem.register("session-manager-flush", () => this.sessionManager.flush());
@@ -296,6 +306,11 @@ export class InteractiveMode implements InteractiveModeContext {
 
 		const startupQuiet = settings.get("startup.quiet");
 
+		for (const warning of this.session.configWarnings) {
+			this.ui.addChild(new Text(theme.fg("warning", `Warning: ${warning}`), 1, 0));
+			this.ui.addChild(new Spacer(1));
+		}
+
 		if (!startupQuiet) {
 			// Add welcome header
 			const welcome = new WelcomeComponent(this.#version, modelName, providerName, recentSessions, lspServerInfo);
@@ -323,20 +338,15 @@ export class InteractiveMode implements InteractiveModeContext {
 			}
 		}
 
-		// Set terminal title if session already has one (resumed session)
-		const existingTitle = this.sessionManager.getSessionName();
-		if (existingTitle) {
-			setTerminalTitle(`pi: ${existingTitle}`);
-		}
-
 		this.ui.addChild(this.chatContainer);
 		this.ui.addChild(this.pendingMessagesContainer);
 		this.ui.addChild(this.statusContainer);
 		this.ui.addChild(this.todoContainer);
 		this.ui.addChild(this.btwContainer);
 		this.ui.addChild(this.statusLine); // Only renders hook statuses (main status in editor border)
-		this.ui.addChild(new Spacer(1));
+		this.ui.addChild(this.hookWidgetContainerAbove);
 		this.ui.addChild(this.editorContainer);
+		this.ui.addChild(this.hookWidgetContainerBelow);
 		this.ui.setFocus(this.editor);
 
 		this.#inputController.setupKeyHandlers();
@@ -347,12 +357,11 @@ export class InteractiveMode implements InteractiveModeContext {
 
 		// Start the UI
 		this.ui.start();
+		pushTerminalTitle();
+		setSessionTerminalTitle(this.sessionManager.getSessionName(), this.sessionManager.getCwd());
 		this.#syncEditorMaxHeight();
 		this.isInitialized = true;
 		this.ui.requestRender(true);
-
-		// Set initial terminal title (will be updated when session title is generated)
-		this.ui.terminal.setTitle("π");
 
 		// Initialize hooks with TUI-based UI context
 		await this.initHooksAndCustomTools();
@@ -555,7 +564,7 @@ export class InteractiveMode implements InteractiveModeContext {
 			});
 			if (visibleTasks.length < activePhase.tasks.length) {
 				const remaining = activePhase.tasks.length - visibleTasks.length;
-				lines.push(theme.fg("muted", `${indent}  ${hook} +${remaining} more (Ctrl+T to expand)`));
+				lines.push(theme.fg("muted", `${indent}  ${hook} +${remaining} more`));
 			}
 			this.todoContainer.addChild(new Text(lines.join("\n"), 1, 0));
 			return;
@@ -844,6 +853,7 @@ export class InteractiveMode implements InteractiveModeContext {
 			this.#sttController = undefined;
 		}
 		this.#extensionUiController.clearExtensionTerminalInputListeners();
+		this.#extensionUiController.clearHookWidgets();
 		this.statusLine.dispose();
 		if (this.#resizeHandler) {
 			process.stdout.removeListener("resize", this.#resizeHandler);
@@ -883,7 +893,7 @@ export class InteractiveMode implements InteractiveModeContext {
 		// Drain any in-flight Kitty key release events before stopping.
 		// This prevents escape sequences from leaking to the parent shell over slow SSH.
 		await this.ui.terminal.drainInput(1000);
-
+		popTerminalTitle();
 		this.stop();
 
 		// Print resumption hint if this is a persisted session
@@ -1118,8 +1128,7 @@ export class InteractiveMode implements InteractiveModeContext {
 					this.#startMicAnimation();
 				} else if (state === "transcribing") {
 					this.#stopMicAnimation();
-					this.editor.cursorOverride = `\x1b[38;2;200;200;200m${theme.icon.mic}\x1b[0m`;
-					this.editor.cursorOverrideWidth = 1;
+					this.#setMicCursor({ r: 200, g: 200, b: 200 });
 				} else {
 					this.#cleanupMicAnimation();
 				}
@@ -1129,10 +1138,15 @@ export class InteractiveMode implements InteractiveModeContext {
 		});
 	}
 
+	#setMicCursor(color: { r: number; g: number; b: number }): void {
+		this.editor.cursorOverride = `\x1b[38;2;${color.r};${color.g};${color.b}m${theme.icon.mic}\x1b[0m`;
+		// Theme symbols can be wide (for example, 🎤), so measure the rendered override.
+		this.editor.cursorOverrideWidth = visibleWidth(this.editor.cursorOverride);
+	}
+
 	#updateMicIcon(): void {
 		const { r, g, b } = hsvToRgb({ h: this.#voiceHue, s: 0.9, v: 1.0 });
-		this.editor.cursorOverride = `\x1b[38;2;${r};${g};${b}m${theme.icon.mic}\x1b[0m`;
-		this.editor.cursorOverrideWidth = 1;
+		this.#setMicCursor({ r, g, b });
 	}
 
 	#startMicAnimation(): void {
@@ -1235,6 +1249,10 @@ export class InteractiveMode implements InteractiveModeContext {
 
 	showModelSelector(options?: { temporaryOnly?: boolean }): void {
 		this.#selectorController.showModelSelector(options);
+	}
+
+	showPluginSelector(mode?: "install" | "uninstall"): void {
+		void this.#selectorController.showPluginSelector(mode);
 	}
 
 	showUserMessageSelector(): void {
@@ -1370,8 +1388,8 @@ export class InteractiveMode implements InteractiveModeContext {
 		return this.#extensionUiController.emitCustomToolSessionEvent(reason, previousSessionFile);
 	}
 
-	setHookWidget(key: string, content: unknown): void {
-		this.#extensionUiController.setHookWidget(key, content);
+	setHookWidget(key: string, content: ExtensionWidgetContent, options?: ExtensionWidgetOptions): void {
+		this.#extensionUiController.setHookWidget(key, content, options);
 	}
 
 	setHookStatus(key: string, text: string | undefined): void {
@@ -1398,8 +1416,13 @@ export class InteractiveMode implements InteractiveModeContext {
 		this.#extensionUiController.hideHookInput();
 	}
 
-	showHookEditor(title: string, prefill?: string): Promise<string | undefined> {
-		return this.#extensionUiController.showHookEditor(title, prefill);
+	showHookEditor(
+		title: string,
+		prefill?: string,
+		dialogOptions?: ExtensionUIDialogOptions,
+		editorOptions?: { promptStyle?: boolean },
+	): Promise<string | undefined> {
+		return this.#extensionUiController.showHookEditor(title, prefill, dialogOptions, editorOptions);
 	}
 
 	hideHookEditor(): void {
