@@ -7,6 +7,12 @@ import { FileSessionStorage } from "@oh-my-pi/pi-coding-agent/session/session-st
 import { fuzzyFind } from "@oh-my-pi/pi-natives";
 import { getProjectDir, logger } from "@oh-my-pi/pi-utils";
 
+function isValidSessionPath(sessionPath: string, sessionDir: string): boolean {
+	const resolved = path.resolve(sessionPath);
+	const resolvedDir = path.resolve(sessionDir);
+	return resolved.startsWith(resolvedDir + path.sep) && resolved.endsWith(".jsonl");
+}
+
 function success<T extends RpcCommand["type"]>(id: string | undefined, command: T, data?: object | null): RpcResponse {
 	return { id, type: "response", command, success: true, data } as RpcResponse;
 }
@@ -223,6 +229,10 @@ export async function handleCommand(session: AgentSession, command: RpcCommand):
 		}
 
 		case "switch_session": {
+			const sessionDir = session.sessionManager.getSessionDir();
+			if (!isValidSessionPath(command.sessionPath, sessionDir)) {
+				return error(id, "switch_session", "Invalid session path");
+			}
 			try {
 				const cancelled = !(await session.switchSession(command.sessionPath));
 				return success(id, "switch_session", { cancelled });
@@ -233,6 +243,10 @@ export async function handleCommand(session: AgentSession, command: RpcCommand):
 
 		case "delete_session": {
 			const targetPath = command.sessionPath;
+			const delSessionDir = session.sessionManager.getSessionDir();
+			if (!isValidSessionPath(targetPath, delSessionDir)) {
+				return error(id, "delete_session", "Invalid session path");
+			}
 			const currentFile = session.sessionFile;
 			// If deleting the active session, detach first so we don't leave a broken state.
 			if (targetPath === currentFile) {

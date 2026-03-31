@@ -1,3 +1,4 @@
+import { DEFAULT_PORT } from "@oh-my-pi/pi-coding-agent/config/resolve-config-value";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
@@ -13,7 +14,7 @@ export default defineConfig({
 	server: {
 		proxy: {
 			"/ws": {
-				target: "ws://localhost:3848",
+				target: `ws://localhost:${DEFAULT_PORT}`,
 				ws: true,
 			},
 		},

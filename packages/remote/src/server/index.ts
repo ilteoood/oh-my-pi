@@ -1,4 +1,5 @@
 import * as path from "node:path";
+import { DEFAULT_PORT } from "@oh-my-pi/pi-coding-agent/config/resolve-config-value";
 import type { AgentSession } from "@oh-my-pi/pi-coding-agent/session/agent-session";
 import { Hono } from "hono";
 import { serveStatic, websocket } from "hono/bun";
@@ -10,7 +11,7 @@ const STATIC_DIR = path.join(PACKAGE_ROOT, "dist", "client");
 
 export async function startRemoteServer(
 	session: AgentSession,
-	port = 3848,
+	port = DEFAULT_PORT,
 ): Promise<{ port: number; url: string; stop: () => void }> {
 	const clients = new Set<WSContext>();
 

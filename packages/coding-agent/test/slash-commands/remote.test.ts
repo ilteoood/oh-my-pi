@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "bun:test";
+import { DEFAULT_PORT } from "@oh-my-pi/pi-coding-agent/config/resolve-config-value";
 import type { InteractiveModeContext } from "@oh-my-pi/pi-coding-agent/modes/types";
 import { executeBuiltinSlashCommand } from "@oh-my-pi/pi-coding-agent/slash-commands/builtin-registry";
 
@@ -16,7 +17,7 @@ describe("/remote slash command", () => {
 		const handled = await executeBuiltinSlashCommand("/remote", runtime);
 		expect(handled).toBe(true);
 		expect(setText).toHaveBeenCalledWith("");
-		expect(handleRemoteCommand).toHaveBeenCalledWith(3848);
+		expect(handleRemoteCommand).toHaveBeenCalledWith(DEFAULT_PORT);
 	});
 
 	it("passes custom port when provided as argument", async () => {

@@ -4,6 +4,7 @@ import * as path from "node:path";
 import { getOAuthProviders } from "@oh-my-pi/pi-ai";
 import { getConfigDirName } from "@oh-my-pi/pi-utils";
 import { invalidate as invalidateFsCache } from "../capability/fs";
+import { DEFAULT_PORT } from "../config/resolve-config-value";
 import type { SettingPath, SettingValue } from "../config/settings";
 import { settings } from "../config/settings";
 import { clearClaudePluginRootsCache } from "../discovery/helpers.js";
@@ -519,7 +520,12 @@ const BUILTIN_SLASH_COMMAND_REGISTRY: ReadonlyArray<BuiltinSlashCommandSpec> = [
 		allowArgs: true,
 		handle: async (command, runtime) => {
 			const portArg = command.args.trim();
-			const port = portArg ? parseInt(portArg, 10) : 3848;
+			const port = portArg ? parseInt(portArg, 10) : DEFAULT_PORT;
+			if (Number.isNaN(port)) {
+				runtime.ctx.showStatus("Invalid port number. Usage: /remote [port]");
+				runtime.ctx.editor.setText("");
+				return;
+			}
 			runtime.ctx.editor.setText("");
 			await runtime.ctx.handleRemoteCommand(port);
 		},

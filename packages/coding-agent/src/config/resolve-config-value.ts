@@ -12,6 +12,8 @@ const commandResultCache = new Map<string, string>();
 /** De-duplicates concurrent executions for the same command. */
 const commandInFlight = new Map<string, Promise<string | undefined>>();
 
+export const DEFAULT_PORT = 3848;
+
 /**
  * Resolve a config value (API key, header value, etc.) to an actual value.
  * - If starts with "!", executes the rest as a shell command and uses stdout (cached)

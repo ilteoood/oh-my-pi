@@ -6,6 +6,7 @@ import { THINKING_EFFORTS } from "@oh-my-pi/pi-ai";
 import { APP_NAME } from "@oh-my-pi/pi-utils";
 import { Args, Command, Flags } from "@oh-my-pi/pi-utils/cli";
 import { parseArgs } from "../cli/args";
+import { DEFAULT_PORT } from "../config/resolve-config-value";
 import { runRootCommand } from "../main";
 
 export default class Index extends Command {
@@ -120,7 +121,7 @@ export default class Index extends Command {
 			description: "Disable title auto-generation",
 		}),
 		remote: Flags.string({
-			description: "Start remote control web server (optionally specify port, default: 3848)",
+			description: `Start remote control web server (optionally specify port, default: ${DEFAULT_PORT})`,
 		}),
 	};
 

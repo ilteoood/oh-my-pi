@@ -21,7 +21,7 @@ const {
 		fetch: vi.fn(),
 	};
 	const mockUpgradeWebSocket = vi.fn((factory: () => Record<string, unknown>) => factory);
-	const mockBunServeFn = vi.fn().mockReturnValue({ port: 3848, stop: vi.fn() });
+	const mockBunServeFn = vi.fn().mockReturnValue({ port: DEFAULT_PORT, stop: vi.fn() });
 	const mockGetSessionState = vi.fn().mockReturnValue({ type: "state", connected: true });
 	const mockHandleCommand = vi.fn().mockResolvedValue({ type: "response", command: "ping", success: true });
 
@@ -116,10 +116,11 @@ vi.mock("../src/commandHandler", () => ({
 	handleCommand: mockHandleCommand,
 }));
 
+import * as fsPromises from "node:fs/promises";
 // ---------------------------------------------------------------------------
 // Static imports come after all vi.mock() declarations.
 // ---------------------------------------------------------------------------
-import * as fsPromises from "node:fs/promises";
+import { DEFAULT_PORT } from "@oh-my-pi/pi-coding-agent/config/resolve-config-value";
 import { startRemoteServer } from "../src/server";
 
 // ---------------------------------------------------------------------------
@@ -179,7 +180,7 @@ beforeEach(() => {
 	vi.clearAllMocks();
 
 	// Give each test a fresh stop spy and update what Bun.serve returns.
-	mockBunServer = { port: 3848, stop: vi.fn() };
+	mockBunServer = { port: DEFAULT_PORT, stop: vi.fn() };
 	mockBunServeFn.mockReturnValue(mockBunServer);
 
 	// Default: readdir throws so ensureClientBuild returns early (source dir
@@ -208,7 +209,7 @@ beforeEach(() => {
 describe("startRemoteServer", () => {
 	it("returns an object with port, url, and stop function", async () => {
 		const { session } = makeSession();
-		const result = await startRemoteServer(session as unknown as Parameters<typeof startRemoteServer>[0], 3848);
+		const result = await startRemoteServer(session as unknown as Parameters<typeof startRemoteServer>[0], DEFAULT_PORT);
 
 		expect(result).toHaveProperty("port");
 		expect(result).toHaveProperty("url");
@@ -217,7 +218,7 @@ describe("startRemoteServer", () => {
 
 	it("constructs url from the actual server port", async () => {
 		const { session } = makeSession();
-		const result = await startRemoteServer(session as unknown as Parameters<typeof startRemoteServer>[0], 3848);
+		const result = await startRemoteServer(session as unknown as Parameters<typeof startRemoteServer>[0], DEFAULT_PORT);
 
 		expect(result.url).toBe(`http://localhost:${result.port}`);
 	});

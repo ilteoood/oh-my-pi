@@ -9,6 +9,7 @@ import {
 	type UsageLimit,
 	type UsageReport,
 } from "@oh-my-pi/pi-ai";
+import { DEFAULT_PORT } from "@oh-my-pi/pi-coding-agent/config/resolve-config-value";
 import { copyToClipboard } from "@oh-my-pi/pi-natives";
 import { Loader, Markdown, padding, Spacer, Text, visibleWidth } from "@oh-my-pi/pi-tui";
 import { formatDuration, Snowflake, setProjectDir } from "@oh-my-pi/pi-utils";
@@ -876,7 +877,7 @@ export class CommandController {
 		this.ctx.ui.requestRender();
 	}
 
-	async handleRemoteCommand(port = 3848): Promise<string | undefined> {
+	async handleRemoteCommand(port = DEFAULT_PORT): Promise<string | undefined> {
 		if (this.#remoteServer) {
 			this.ctx.showStatus(`Remote server already running at ${this.#remoteServer.url}`);
 			return this.#remoteServer.url;
